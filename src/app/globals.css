@@ -1,26 +1,57 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+:root { --para-gap-8pt: 10.5px; }
+html, body { @apply text-[15px] text-slate-800; }
+
+/* 共通カード */
+.card { @apply bg-white rounded-2xl border border-slate-200 shadow-sm; }
+
+/* ボタン：色はここで決めない（各ボタン側で付与） */
+.btn  { @apply inline-flex items-center justify-center px-4 py-2 rounded-xl border font-semibold transition-colors duration-200; }
+
+/* テキストエリア/入力 */
+.textarea { @apply w-full min-h-[160px] rounded-xl border border-slate-300 p-3 focus:ring-2 focus:ring-sky-300; }
+.input    { @apply w-full h-[44px] rounded-xl border border-slate-300 px-3 focus:ring-2 focus:ring-sky-300; }
+
+.hint-badge { @apply w-8 h-8 grid place-items-center rounded-full border border-sky-300 text-sky-600 bg-white; }
+.mic-btn { @apply w-10 h-10 grid place-items-center rounded-full border border-slate-300 text-slate-600 bg-slate-100; }
+.mic-btn.rec { @apply bg-red-500 text-white border-red-500; }
+
+/* 画面ラッパー */
+.page-shell { @apply mx-auto max-w-[390px] h-[100svh] overflow-hidden bg-gradient-to-b from-[#e6f2ff] to-[#f7fbff] px-4 py-4; }
+
+/* スクロールバー出現で幅が揺れないように */
+.scroll-stable { scrollbar-gutter: stable both-edges; }
+
+/* ボタン・入力・カードの簡易プリセット */
+.btn { @apply px-4 py-2 border rounded-xl text-slate-800; }
+.input { @apply w-full px-3 py-2 border rounded-xl outline-none; }
+.textarea { @apply w-full min-h-[140px] px-3 py-2 border rounded-xl outline-none; }
+.card { @apply rounded-2xl border border-slate-200 bg-white; }
+
+/* カードのベースは使わず、今回は各要素を個別配置 */
+.mic-btn { @apply w-14 h-14 rounded-full flex items-center justify-center text-white text-xl; }
+/* RecorderBar 内で色はコンポーネント側で指定済み */
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;          /* ★bodyだけでなくhtmlも殺す */
+  overscroll-behavior: none; /* ★慣性スクロール等の暴れ対策 */
 }
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes softPulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.015);
+    filter: brightness(1.08);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.impression-pulse {
+  animation: softPulse 2.6s ease-in-out infinite;
 }

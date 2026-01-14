@@ -1,18 +1,18 @@
-import './globals.css';
+// src/app/layout.tsx
+import type { Metadata } from "next";
+import "./globals.css";
 
-export const metadata = {
-  title: 'Interview GEM',
-  description: 'AI面接シミュレーション'
+export const metadata: Metadata = {
+  title: "K-career",
+  description: "Interview training",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja">
-      <body>{children}</body>
+      <body className="h-screen overflow-hidden">
+        <div className="h-screen overflow-hidden">{children}</div>
+      </body>
     </html>
   );
 }

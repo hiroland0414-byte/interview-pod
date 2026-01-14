@@ -1,77 +1,170 @@
-'use client';
-import React, { useEffect, useRef, useState } from 'react';
+"use client";
 
-type Props = { onResult: (text: string) => void };
+import { useEffect, useRef, useState } from "react";
 
-export default function VoiceInput({ onResult }: Props) {
+export type VoiceInputProps = {
+  onChangeText?: (text: string) => void;
+  onText?: (text: string) => void;
+};
+
+// ---- Web Speech API ----
+const getSRClass = () => {
+  if (typeof window === "undefined") return null;
+  return (
+    (window as any).SpeechRecognition ||
+    (window as any).webkitSpeechRecognition ||
+    null
+  );
+};
+
+// モジュール全体で共有する recognition（親から強制停止したいので）
+let activeRecognition: any = null;
+
+// 親コンポーネント用の「確実にマイク停止」API
+export function stopMic() {
+  try {
+    if (activeRecognition) {
+      // ★「これは人間の意図的な停止だよ」という印を付ける
+      (activeRecognition as any)._manualStop = true;
+      activeRecognition.stop();
+    }
+  } catch {
+    // 失敗しても無視
+  }
+}
+
+export default function VoiceInput({ onChangeText, onText }: VoiceInputProps) {
   const [listening, setListening] = useState(false);
-  const [supported, setSupported] = useState(false);
-  const recRef = useRef<any>(null);
 
-  useEffect(() => {
-    const SR: any =
-      (window as any).webkitSpeechRecognition ||
-      (window as any).SpeechRecognition;
-    if (SR) {
-      setSupported(true);
-      const rec = new SR();
-      rec.lang = 'ja-JP';
-      rec.interimResults = true;
-      rec.continuous = true;
-      rec.onresult = (e: any) => {
-        let finalText = '';
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          const tr = e.results[i][0].transcript;
-          if (e.results[i].isFinal) finalText += tr;
-        }
-        if (finalText) onResult(finalText);
-      };
-      rec.onend = () => setListening(false);
-      recRef.current = rec;
-    }
-  }, [onResult]);
+  const recognitionRef = useRef<any | null>(null);
 
+  // ★ この質問内での「最後に確定した全文」
+  const fullFinalRef = useRef<string>("");
+
+  // ---- 音声開始 ----
   const start = () => {
-    if (!recRef.current) return;
-    if (!listening) {
-      recRef.current.start();
-      setListening(true);
+    const SR = getSRClass();
+    if (!SR) {
+      alert("このブラウザは音声入力に対応していません。");
+      return;
     }
+
+    const recognition = new SR();
+    recognition.lang = "ja-JP";
+    recognition.interimResults = false;   // ★ 中間結果は破棄 → 精度向上
+    recognition.continuous = true;
+
+    recognition.onresult = (e: any) => {
+      let finalText = "";
+
+      // ★ final（isFinal）のみ採用：精度が最も高い
+      for (let i = 0; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          finalText += e.results[i][0].transcript;
+        }
+      }
+
+      finalText = finalText.trim();
+      if (!finalText) return;
+
+      const prevFull = fullFinalRef.current || "";
+
+      // 同じ全文が来たらスキップ
+      if (prevFull === finalText) return;
+
+      // 差分 delta
+      let delta = "";
+      if (finalText.startsWith(prevFull)) {
+        delta = finalText.slice(prevFull.length).trim();
+      } else {
+        // ざっくり共通プレフィックスを探す
+        let i = 0;
+        const len = Math.min(finalText.length, prevFull.length);
+        while (i < len && finalText[i] === prevFull[i]) i++;
+        delta = finalText.slice(i).trim();
+      }
+
+      if (!delta) {
+        fullFinalRef.current = finalText;
+        return;
+      }
+
+      fullFinalRef.current = finalText;
+
+      onChangeText?.(delta);
+      onText?.(delta);
+    };
+
+    recognition.onerror = () => setListening(false);
+
+recognition.onend = () => {
+  // ★ 手動停止（stopMic 経由）の場合は、ここで完全停止
+  if ((recognition as any)._manualStop) {
+    (recognition as any)._manualStop = false; // フラグリセット
+
+    setListening(false);
+    if (activeRecognition === recognition) {
+      activeRecognition = null;
+    }
+    if (recognitionRef.current === recognition) {
+      recognitionRef.current = null;
+    }
+    return;
+  }
+
+  // ★ それ以外 → ブラウザ側が勝手に切ったとみなし、自動再スタート
+  //   （コンポーネントがまだ生きているときだけ）
+  if (recognitionRef.current === recognition) {
+    try {
+      recognition.start();
+      // activeRecognition は同じ recognition のままでOK
+    } catch (err) {
+      console.warn("SpeechRecognition auto-restart failed:", err);
+      setListening(false);
+      if (activeRecognition === recognition) {
+        activeRecognition = null;
+      }
+      recognitionRef.current = null;
+    }
+  }
+};
+
+    recognitionRef.current = recognition;
+    activeRecognition = recognition;
+
+    recognition.start();
+    setListening(true);
   };
 
+  // ---- 停止 ----
   const stop = () => {
-    if (!recRef.current) return;
-    recRef.current.stop();
+    stopMic();
     setListening(false);
   };
 
-  if (!supported) {
-    return (
-      <div className="text-sm text-gray-500">
-        このブラウザは音声入力に対応していません（Chrome/Edge 推奨）
-      </div>
-    );
-  }
+  // ---- unmount ----
+  useEffect(() => {
+    return () => stopMic();
+  }, []);
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-col items-start gap-1">
+      <p className="mb-1 text-[11px] text-slate-500">
+        テキスト入力 / 音声入力が利用できます。
+      </p>
+
       <button
-        onClick={start}
-        disabled={listening}
-        className="px-3 py-2 border rounded disabled:opacity-50"
+        type="button"
+        onClick={() => (listening ? stop() : start())}
+        className={`w-1/2 max-w-[160px] rounded-full px-3 py-1.5 text-xs font-semibold shadow-sm border
+          ${
+            listening
+              ? "bg-red-100 border-red-400 text-red-700"
+              : "bg-sky-100 border-sky-300 text-sky-800"
+          }`}
       >
-        🎙 開始
+        {listening ? "音声入力停止" : "音声入力開始"}
       </button>
-      <button
-        onClick={stop}
-        disabled={!listening}
-        className="px-3 py-2 border rounded disabled:opacity-50"
-      >
-        ■ 停止
-      </button>
-      <span className="text-sm text-gray-600">
-        {listening ? '聞き取り中…' : '待機中'}
-      </span>
     </div>
   );
 }

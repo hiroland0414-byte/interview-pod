@@ -1,9 +1,9 @@
-'use client';
-import { useEffect } from 'react';
+// src/app/page.tsx
+"use client";
 
-export default function Home() {
-  useEffect(() => {
-    window.location.href = '/start';
-  }, []);
-  return <main style={{ padding: 20 }}>Loading...</main>;
+export default function Page() {
+  if (typeof window !== "undefined") {
+    window.location.href = "/start";
+  }
+  return null;
 }
