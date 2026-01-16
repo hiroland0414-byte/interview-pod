@@ -178,13 +178,10 @@ export default function StartPage() {
 
                 {/* おすすめ文（橋渡し） */}
                 <div className="mb-4 text-center">
-                  <p className="text-[13px] font-extrabold text-emerald-200">
+                  <p className="text-[14px] font-extrabold text-emerald-200">
                     面接トレーニングに入る前におすすめ
                   </p>
-                  <p className="text-[12px] font-semibold text-white/85">
-                    声・目線・表情を整えてから面接練習へ
-                  </p>
-
+                 
                   {/* =====================================================
                       B案：小さな入口（思想マニュアル）
                      ===================================================== */}
@@ -203,7 +200,7 @@ export default function StartPage() {
                 {/* 面接トレーニング */}
                 <div className="space-y-3">
                   <div className="mt-2 mb-2 text-center">
-                    <p className="text-[16px] font-extrabold text-yellow-500">
+                    <p className="text-[16px] font-extrabold text-blue-500">
                       ------ 面接トレーニング（質問あり） ------
                     </p>
                   </div>
