@@ -34,11 +34,7 @@ type SpeechRecognitionLike = any;
 
 const asText = (v: unknown) => (v == null ? "" : String(v)).trim();
 
-function toInterviewQuestion(
-  x: any,
-  mode: ModeTag,
-  minCharsDefault = 120
-): InterviewQuestion | null {
+function toInterviewQuestion(x: any, mode: ModeTag, minCharsDefault = 120): InterviewQuestion | null {
   const id = asText(x?.id);
   const text = asText(x?.text) || asText(x?.question) || asText(x?.questionText);
   if (!id || !text) return null;
@@ -109,28 +105,25 @@ export default function InterviewPage() {
   }, [index]);
 
   const charCount = useMemo(() => (answer || "").replace(/\s/g, "").length, [answer]);
-
-  // 追加質問は minChars を使わないが、三大/深掘りのために一応算出
   const minChars = useMemo(() => currentQ?.minChars ?? 120, [currentQ]);
 
   // ---- 質問タイプ判定（追加＝制限なし）----
   const kindStr = String((currentQ as any)?.kind ?? "");
   const idStr = String((currentQ as any)?.id ?? "");
 
-  // ✅ additional CSV は id が add*** の想定。kind が additional の場合も拾う
-  const isAdditional =
-    idStr.toLowerCase().startsWith("add") || kindStr === "additional";
+  // additional CSV は id が add*** の想定。kind が additional の場合も拾う
+  const isAdditional = idStr.toLowerCase().startsWith("add") || kindStr === "additional";
 
-  // ✅ 「？」ボタンは三大質問“本体”のときだけ（core / depth=0 / sectionが三大のどれか）
+  // 「？」ボタンは三大質問“本体”のときだけ
   const isThreeMajorMain =
     kindStr === "core" &&
     (currentQ?.depthLevel ?? 0) === 0 &&
     !!inferQuestionTypeFromSection(currentQ?.section);
 
-  // ✅ 深掘りは必ず制限あり（depthLevel>0 は制限側）
+  // 深掘りは必ず制限あり（depthLevel>0 は制限側）
   const isCoreOrDeepDive = !isAdditional || (currentQ?.depthLevel ?? 0) > 0;
 
-  // ✅ 文字数制限：三大質問＋深掘りのみ有効（追加は常にOK）
+  // 文字数制限：三大質問＋深掘りのみ有効（追加は常にOK）
   const isValid = isCoreOrDeepDive ? charCount >= minChars : true;
 
   const progress = useMemo(() => {
@@ -174,16 +167,16 @@ export default function InterviewPage() {
           .map((x) => toInterviewQuestion(x, m, 120))
           .filter(Boolean) as InterviewQuestion[];
 
-        // ✅ 追加質問は kind を強制して識別できるようにする
+        // 追加質問は kind を強制して識別できるようにする
         const additional = (additionalItems || [])
           .map((x) => toInterviewQuestion({ ...(x as any), kind: "additional" }, m, 120))
           .filter(Boolean) as InterviewQuestion[];
 
         const q = [...core, ...additional];
 
-        // ✅ 文字数ルール：
+        // 文字数ルール：
         // - 三大質問“本体”だけ minChars を維持（例：CSVで200など）
-        // - それ以外（深掘り・追加・その他）は minChars=120（追加は制限しないが、値保持はOK）
+        // - それ以外（深掘り・追加・その他）は minChars=120
         const normalized = q.map((qq: any) => {
           const depth = qq?.depthLevel ?? 0;
           const section = String(qq?.section ?? "").toLowerCase();
@@ -243,7 +236,6 @@ export default function InterviewPage() {
       const safeInterim = correctLightRealtime(interim);
       const safeFinal = correctLightRealtime(finalText);
 
-      // interim は保持するが表示しない
       interimRef.current = safeInterim;
 
       setAnswer((prev: string) => {
@@ -261,9 +253,7 @@ export default function InterviewPage() {
     return () => {
       try {
         recog.stop();
-      } catch {
-        // noop
-      }
+      } catch {}
       recogRef.current = null;
     };
   }, []);
@@ -277,9 +267,7 @@ export default function InterviewPage() {
 
     try {
       recogRef.current?.stop?.();
-    } catch {
-      // noop
-    }
+    } catch {}
 
     const fixed = correctStrictFinal(rawNow).text;
     setAnswer(fixed);
@@ -310,28 +298,28 @@ export default function InterviewPage() {
     }
   }
 
-function saveAnswerToSession(q: InterviewQuestion, text: string) {
-  if (typeof window === "undefined") return;
+  function saveAnswerToSession(q: InterviewQuestion, text: string) {
+    if (typeof window === "undefined") return;
 
-  const raw = sessionStorage.getItem("kcareer.session.answers");
-  const arr: {
-    questionText: string;
-    answerText: string;
-    kind?: string;
-    section?: string;
-    depthLevel?: number;
-  }[] = raw ? JSON.parse(raw) : [];
+    const raw = sessionStorage.getItem("kcareer.session.answers");
+    const arr: {
+      questionText: string;
+      answerText: string;
+      kind?: string;
+      section?: string;
+      depthLevel?: number;
+    }[] = raw ? JSON.parse(raw) : [];
 
-  arr.push({
-    questionText: q.text,
-    answerText: text,
-    kind: String((q as any)?.kind ?? ""),
-    section: (q as any)?.section ? String((q as any).section) : undefined,
-    depthLevel: typeof (q as any)?.depthLevel === "number" ? (q as any).depthLevel : undefined,
-  });
+    arr.push({
+      questionText: q.text,
+      answerText: text,
+      kind: String((q as any)?.kind ?? ""),
+      section: (q as any)?.section ? String((q as any).section) : undefined,
+      depthLevel: typeof (q as any)?.depthLevel === "number" ? (q as any).depthLevel : undefined,
+    });
 
-  sessionStorage.setItem("kcareer.session.answers", JSON.stringify(arr));
-}
+    sessionStorage.setItem("kcareer.session.answers", JSON.stringify(arr));
+  }
 
   // -----------------------------
   // 次へ：深掘り差し込み→進行
@@ -345,12 +333,12 @@ function saveAnswerToSession(q: InterviewQuestion, text: string) {
       const finalized = await stopAndFinalizeSpeechIfNeeded();
       const cleaned = stripInterim(finalized);
 
-      // ✅ 制限は「三大質問＋深掘り」だけ
+      // 制限は「三大質問＋深掘り」だけ
       if (isCoreOrDeepDive) {
         if (cleaned.replace(/\s/g, "").length < minChars) return;
       }
 
-      // ✅ 追加質問は未回答でも触れない：空なら保存せず次へ
+      // 追加質問は未回答でも触れない：空なら保存せず次へ
       if (cleaned.length > 0) {
         saveAnswerToSession(currentQ, cleaned);
       }
@@ -378,7 +366,7 @@ function saveAnswerToSession(q: InterviewQuestion, text: string) {
             maxDeepDives: 3,
           });
 
-          // ✅ 三大質問本体以外は minChars=120 に固定（deepDiveも含む）
+          // 三大質問本体以外は minChars=120 に固定（deepDiveも含む）
           nextQueue = nextQueue.map((qq: any) => {
             const depth = qq?.depthLevel ?? 0;
             const section = String(qq?.section ?? "").toLowerCase();
@@ -409,20 +397,20 @@ function saveAnswerToSession(q: InterviewQuestion, text: string) {
           sessionStorage.setItem("kcareer.session.mode", mode);
 
           // フィードバック生成（ローカル版）
-try {
-  const rawAnswers = sessionStorage.getItem("kcareer.session.answers");
-  const qa = rawAnswers ? JSON.parse(rawAnswers) : [];
+          try {
+            const rawAnswers = sessionStorage.getItem("kcareer.session.answers");
+            const qa = rawAnswers ? JSON.parse(rawAnswers) : [];
 
-  const { bundleAnswersSimple } = await import("@/lib/feedback/bundleSimple");
-  const { generateFeedbackLocal } = await import("@/lib/feedback/generateLocal");
-  const { saveFeedbackToSession } = await import("@/lib/feedback/sessionWriter");
+            const { bundleAnswersSimple } = await import("@/lib/feedback/bundleSimple");
+            const { generateFeedbackLocal } = await import("@/lib/feedback/generateLocal");
+            const { saveFeedbackToSession } = await import("@/lib/feedback/sessionWriter");
 
-  const bundles = bundleAnswersSimple(qa, mode);          // ← 配列
-  const items = generateFeedbackLocal(mode, bundles);     // ← 配列をそのまま渡す
-  saveFeedbackToSession(items);
-} catch (e) {
-  console.error(e);
-}
+            const bundles = bundleAnswersSimple(qa, mode);
+            const items = generateFeedbackLocal(mode, bundles);
+            saveFeedbackToSession(items);
+          } catch (e) {
+            console.error(e);
+          }
         }
 
         router.push("/interview/finish");
@@ -439,9 +427,13 @@ try {
   const current = index + 1;
   const total = queue.length;
 
+  // ============================
+  // ✅ ここがスクロール修正の核心
+  // 背景は固定、カード内コンテンツだけスクロール
+  // ============================
   return (
-    <main className="relative w-full h-[100svh] overflow-hidden flex justify-center bg-slate-100">
-      <div className="w-[390px] max-w-[92vw] h-[100svh] flex items-start justify-center pt-2 pb-6">
+    <main className="relative w-full min-h-[100svh] flex justify-center bg-slate-100">
+      <div className="w-[390px] max-w-[92vw] min-h-[100svh] flex items-start justify-center py-2">
         <div className="relative w-full rounded-[28px] overflow-hidden shadow-2xl border border-white/30">
           <div
             className="absolute inset-0"
@@ -456,7 +448,11 @@ try {
           />
           <div className="absolute inset-0 bg-sky-950/35" />
 
-          <div className="relative px-5 pt-4 pb-5">
+          {/* ★スクロール領域 */}
+          <div
+            className="relative px-5 pt-4 pb-5 max-h-[calc(100svh-16px)] overflow-y-auto overscroll-contain"
+            style={{ WebkitOverflowScrolling: "touch" }}
+          >
             <div className="mt-4 text-center">
               <h1
                 className="text-[30px] font-extrabold text-white tracking-wide"
@@ -511,15 +507,12 @@ try {
                 {/* ヒントカード（モーダル） */}
                 {hintOpen && (
                   <div className="absolute inset-0 z-20 flex items-center justify-center p-4">
-                    {/* 背景（押すと閉じる） */}
                     <button
                       type="button"
                       className="absolute inset-0 bg-black/40"
                       onClick={() => setHintOpen(false)}
                       aria-label="close hint overlay"
                     />
-
-                    {/* カード本体 */}
                     <div className="relative w-full max-w-[320px] rounded-2xl bg-white p-4 shadow-xl border border-slate-200">
                       <div className="flex items-start justify-between">
                         <h3 className="text-[14px] font-extrabold text-slate-800">ヒント</h3>
@@ -561,7 +554,6 @@ try {
                 <div className="mt-2 flex items-center justify-between">
                   <div className="text-[12px] font-bold text-slate-700">
                     {charCount}文字
-                    {/* ✅ 「○文字以上が必要」は三大＋深掘りだけ表示（追加は出さない） */}
                     {isCoreOrDeepDive && (
                       <span className={isValid ? "text-emerald-700" : "text-red-500"}>
                         {" "}
@@ -617,6 +609,9 @@ try {
                 次へ
               </button>
             </div>
+
+            {/* 下が欠けないように余白（スマホで効く） */}
+            <div className="h-3" />
           </div>
         </div>
       </div>

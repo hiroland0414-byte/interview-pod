@@ -34,7 +34,11 @@ type SpeechRecognitionLike = any;
 
 const asText = (v: unknown) => (v == null ? "" : String(v)).trim();
 
-function toInterviewQuestion(x: any, mode: ModeTag, minCharsDefault = 120): InterviewQuestion | null {
+function toInterviewQuestion(
+  x: any,
+  mode: ModeTag,
+  minCharsDefault = 120
+): InterviewQuestion | null {
   const id = asText(x?.id);
   const text = asText(x?.text) || asText(x?.question) || asText(x?.questionText);
   if (!id || !text) return null;
@@ -96,6 +100,11 @@ export default function InterviewPage() {
   const recogRef = useRef<SpeechRecognitionLike | null>(null);
   const interimRef = useRef<string>("");
 
+  // ✅ 音声の安定化（復帰＆重複防止）
+  const wantListeningRef = useRef(false);
+  const restartingRef = useRef(false);
+  const lastFinalAllRef = useRef<string>(""); // final累積（差分取り用）
+
   const currentQ = queue[index];
   const modeLabel = useMemo(() => MODE_LABEL[mode], [mode]);
 
@@ -111,19 +120,15 @@ export default function InterviewPage() {
   const kindStr = String((currentQ as any)?.kind ?? "");
   const idStr = String((currentQ as any)?.id ?? "");
 
-  // additional CSV は id が add*** の想定。kind が additional の場合も拾う
   const isAdditional = idStr.toLowerCase().startsWith("add") || kindStr === "additional";
 
-  // 「？」ボタンは三大質問“本体”のときだけ
   const isThreeMajorMain =
     kindStr === "core" &&
     (currentQ?.depthLevel ?? 0) === 0 &&
     !!inferQuestionTypeFromSection(currentQ?.section);
 
-  // 深掘りは必ず制限あり（depthLevel>0 は制限側）
   const isCoreOrDeepDive = !isAdditional || (currentQ?.depthLevel ?? 0) > 0;
 
-  // 文字数制限：三大質問＋深掘りのみ有効（追加は常にOK）
   const isValid = isCoreOrDeepDive ? charCount >= minChars : true;
 
   const progress = useMemo(() => {
@@ -167,16 +172,12 @@ export default function InterviewPage() {
           .map((x) => toInterviewQuestion(x, m, 120))
           .filter(Boolean) as InterviewQuestion[];
 
-        // 追加質問は kind を強制して識別できるようにする
         const additional = (additionalItems || [])
           .map((x) => toInterviewQuestion({ ...(x as any), kind: "additional" }, m, 120))
           .filter(Boolean) as InterviewQuestion[];
 
         const q = [...core, ...additional];
 
-        // 文字数ルール：
-        // - 三大質問“本体”だけ minChars を維持（例：CSVで200など）
-        // - それ以外（深掘り・追加・その他）は minChars=120
         const normalized = q.map((qq: any) => {
           const depth = qq?.depthLevel ?? 0;
           const section = String(qq?.section ?? "").toLowerCase();
@@ -210,6 +211,8 @@ export default function InterviewPage() {
 
   // -----------------------------
   // 音声入力セットアップ（Chrome/Android想定）
+  //  - onend 自動復帰
+  //  - final差分取りで重複防止
   // -----------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -222,81 +225,96 @@ export default function InterviewPage() {
     recog.interimResults = true;
     recog.continuous = true;
 
+    const safeStart = () => {
+      if (!wantListeningRef.current) return;
+      if (restartingRef.current) return;
+      restartingRef.current = true;
+
+      window.setTimeout(() => {
+        try {
+          recog.abort?.();
+        } catch {}
+        try {
+          recog.start();
+          setListening(true);
+        } catch {}
+        restartingRef.current = false;
+      }, 250);
+    };
+
     recog.onresult = (event: any) => {
       let interim = "";
-      let finalText = "";
+      let finalAll = "";
+
+      for (let i = 0; i < event.results.length; i++) {
+        const res = event.results[i];
+        const text = res[0]?.transcript ?? "";
+        if (res.isFinal) finalAll += text;
+      }
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const res = event.results[i];
         const text = res[0]?.transcript ?? "";
-        if (res.isFinal) finalText += text;
-        else interim += text;
+        if (!res.isFinal) interim += text;
       }
 
-      const safeInterim = correctLightRealtime(interim);
-      const safeFinal = correctLightRealtime(finalText);
+      interimRef.current = correctLightRealtime(interim);
 
-      interimRef.current = safeInterim;
+      const safeFinalAll = correctLightRealtime(finalAll);
+      const prevAll = lastFinalAllRef.current;
 
-      setAnswer((prev: string) => {
-        const base = prev.replace(/\n?\[interim\][\s\S]*$/s, "");
-        const merged = (base + safeFinal).trimStart();
-        return merged;
-      });
+      let delta = safeFinalAll;
+      if (prevAll && safeFinalAll.startsWith(prevAll)) {
+        delta = safeFinalAll.slice(prevAll.length);
+      }
+      lastFinalAllRef.current = safeFinalAll;
+
+      if (delta && delta.trim().length > 0) {
+        setAnswer((prev: string) => {
+          const base = prev.replace(/\n?\[interim\][\s\S]*$/s, "");
+          return (base + delta).trimStart();
+        });
+      }
     };
 
-    recog.onerror = () => setListening(false);
-    recog.onend = () => setListening(false);
+    recog.onerror = (e: any) => {
+      const err = String(e?.error ?? "");
+      setListening(false);
+
+      if (err.includes("not-allowed") || err.includes("service-not-allowed")) {
+        wantListeningRef.current = false;
+        return;
+      }
+      safeStart();
+    };
+
+    recog.onend = () => {
+      setListening(false);
+      safeStart();
+    };
 
     recogRef.current = recog;
 
+    const onVis = () => {
+      if (document.hidden) {
+        try {
+          recog.stop?.();
+        } catch {}
+      } else {
+        safeStart();
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+
     return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      wantListeningRef.current = false;
       try {
-        recog.stop();
+        recog.stop?.();
       } catch {}
       recogRef.current = null;
     };
   }, []);
-
-  async function stopAndFinalizeSpeechIfNeeded(): Promise<string> {
-    const rawNow = stripInterim(answer);
-
-    if (!listening) {
-      return correctStrictFinal(rawNow).text;
-    }
-
-    try {
-      recogRef.current?.stop?.();
-    } catch {}
-
-    const fixed = correctStrictFinal(rawNow).text;
-    setAnswer(fixed);
-    setListening(false);
-    return fixed;
-  }
-
-  async function toggleSpeech() {
-    const recog = recogRef.current;
-    if (!recog) {
-      alert("このブラウザは音声入力に未対応です（Chrome/Android推奨）");
-      return;
-    }
-
-    if (listening) {
-      await stopAndFinalizeSpeechIfNeeded();
-      return;
-    }
-
-    setAnswer((prev) => stripInterim(prev));
-    interimRef.current = "";
-
-    try {
-      recog.start();
-      setListening(true);
-    } catch {
-      alert("音声入力を開始できませんでした（マイク許可を確認してください）");
-    }
-  }
 
   function saveAnswerToSession(q: InterviewQuestion, text: string) {
     if (typeof window === "undefined") return;
@@ -321,6 +339,58 @@ export default function InterviewPage() {
     sessionStorage.setItem("kcareer.session.answers", JSON.stringify(arr));
   }
 
+  async function stopAndFinalizeSpeechIfNeeded(): Promise<string> {
+    const rawNow = stripInterim(answer);
+
+    if (!wantListeningRef.current) {
+      return correctStrictFinal(rawNow).text;
+    }
+
+    wantListeningRef.current = false;
+    try {
+      recogRef.current?.stop?.();
+    } catch {}
+
+    const fixed = correctStrictFinal(rawNow).text;
+    setAnswer(fixed);
+    setListening(false);
+    return fixed;
+  }
+
+  async function toggleSpeech() {
+    const recog = recogRef.current;
+    if (!recog) {
+      alert("このブラウザは音声入力に未対応です（Chrome/Android推奨）");
+      return;
+    }
+
+    if (wantListeningRef.current) {
+      await stopAndFinalizeSpeechIfNeeded();
+      return;
+    }
+
+    wantListeningRef.current = true;
+    lastFinalAllRef.current = "";
+    setAnswer((prev) => stripInterim(prev));
+    interimRef.current = "";
+
+    try {
+      recog.start();
+      setListening(true);
+    } catch {
+      try {
+        recog.abort?.();
+      } catch {}
+      try {
+        recog.start();
+        setListening(true);
+      } catch {
+        alert("音声入力を開始できませんでした（マイク許可を確認してください）");
+        wantListeningRef.current = false;
+      }
+    }
+  }
+
   // -----------------------------
   // 次へ：深掘り差し込み→進行
   // -----------------------------
@@ -333,12 +403,12 @@ export default function InterviewPage() {
       const finalized = await stopAndFinalizeSpeechIfNeeded();
       const cleaned = stripInterim(finalized);
 
-      // 制限は「三大質問＋深掘り」だけ
+      // ✅ 制限は「三大質問＋深掘り」だけ
       if (isCoreOrDeepDive) {
         if (cleaned.replace(/\s/g, "").length < minChars) return;
       }
 
-      // 追加質問は未回答でも触れない：空なら保存せず次へ
+      // ✅ 追加質問は未回答でも触れない：空なら保存せず次へ
       if (cleaned.length > 0) {
         saveAnswerToSession(currentQ, cleaned);
       }
@@ -366,7 +436,6 @@ export default function InterviewPage() {
             maxDeepDives: 3,
           });
 
-          // 三大質問本体以外は minChars=120 に固定（deepDiveも含む）
           nextQueue = nextQueue.map((qq: any) => {
             const depth = qq?.depthLevel ?? 0;
             const section = String(qq?.section ?? "").toLowerCase();
@@ -396,7 +465,6 @@ export default function InterviewPage() {
           }
           sessionStorage.setItem("kcareer.session.mode", mode);
 
-          // フィードバック生成（ローカル版）
           try {
             const rawAnswers = sessionStorage.getItem("kcareer.session.answers");
             const qa = rawAnswers ? JSON.parse(rawAnswers) : [];
@@ -427,14 +495,13 @@ export default function InterviewPage() {
   const current = index + 1;
   const total = queue.length;
 
-  // ============================
-  // ✅ ここがスクロール修正の核心
-  // 背景は固定、カード内コンテンツだけスクロール
-  // ============================
   return (
-    <main className="relative w-full min-h-[100svh] flex justify-center bg-slate-100">
-      <div className="w-[390px] max-w-[92vw] min-h-[100svh] flex items-start justify-center py-2">
-        <div className="relative w-full rounded-[28px] overflow-hidden shadow-2xl border border-white/30">
+    // ✅ 外側を overflow-hidden にしない（スクロールを殺す）
+    <main className="min-h-[100svh] w-full bg-slate-100 flex justify-center overflow-y-auto">
+      <div className="w-[390px] max-w-[92vw] py-2 pb-6">
+        {/* ✅ 画面内でスクロール可能にする */}
+        <div className="relative w-full rounded-[28px] overflow-hidden shadow-2xl border border-white/30 max-h-[calc(100svh-16px)] overflow-y-auto">
+          {/* 背景 */}
           <div
             className="absolute inset-0"
             style={{
@@ -448,11 +515,8 @@ export default function InterviewPage() {
           />
           <div className="absolute inset-0 bg-sky-950/35" />
 
-          {/* ★スクロール領域 */}
-          <div
-            className="relative px-5 pt-4 pb-5 max-h-[calc(100svh-16px)] overflow-y-auto overscroll-contain"
-            style={{ WebkitOverflowScrolling: "touch" }}
-          >
+          {/* 中身 */}
+          <div className="relative px-5 pt-4 pb-5">
             <div className="mt-4 text-center">
               <h1
                 className="text-[30px] font-extrabold text-white tracking-wide"
@@ -485,14 +549,12 @@ export default function InterviewPage() {
               </div>
 
               <div className="mt-4 relative rounded-[18px] border border-white/70 bg-white/55 p-4">
-                {/* 質問文 */}
                 <div className="pr-10">
                   <p className="text-[18px] font-extrabold text-slate-800 leading-snug">
                     {isLoading ? "読み込み中..." : currentQ?.text || "（質問がありません）"}
                   </p>
                 </div>
 
-                {/* 「？」ボタン：三大質問のときだけ */}
                 {isThreeMajorMain && (
                   <button
                     type="button"
@@ -504,7 +566,6 @@ export default function InterviewPage() {
                   </button>
                 )}
 
-                {/* ヒントカード（モーダル） */}
                 {hintOpen && (
                   <div className="absolute inset-0 z-20 flex items-center justify-center p-4">
                     <button
@@ -513,6 +574,7 @@ export default function InterviewPage() {
                       onClick={() => setHintOpen(false)}
                       aria-label="close hint overlay"
                     />
+
                     <div className="relative w-full max-w-[320px] rounded-2xl bg-white p-4 shadow-xl border border-slate-200">
                       <div className="flex items-start justify-between">
                         <h3 className="text-[14px] font-extrabold text-slate-800">ヒント</h3>
@@ -543,7 +605,6 @@ export default function InterviewPage() {
                   </div>
                 )}
 
-                {/* 回答欄 */}
                 <textarea
                   className="mt-3 w-full min-h-[220px] rounded-[16px] border border-slate-300 bg-white p-3 text-[14px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300"
                   placeholder="ここに回答を入力してください。"
@@ -587,7 +648,7 @@ export default function InterviewPage() {
                     title="音声入力"
                     onClick={toggleSpeech}
                   >
-                    <span className="text-[22px]">{listening ? "⏹" : "🎤"}</span>
+                    <span className="text-[22px]">{wantListeningRef.current ? "⏹" : "🎤"}</span>
                   </button>
                 </div>
               </div>
@@ -609,12 +670,10 @@ export default function InterviewPage() {
                 次へ
               </button>
             </div>
-
-            {/* 下が欠けないように余白（スマホで効く） */}
-            <div className="h-3" />
           </div>
         </div>
       </div>
     </main>
   );
 }
+
