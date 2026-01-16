@@ -200,8 +200,8 @@ export default function StartPage() {
                 {/* 面接トレーニング */}
                 <div className="space-y-3">
                   <div className="mt-2 mb-2 text-center">
-                    <p className="text-[16px] font-extrabold text-blue-500">
-                      ------ 面接トレーニング（質問あり） ------
+                    <p className="text-[18px] font-extrabold text-blue-800">
+                      --- 面接トレーニング ---
                     </p>
                   </div>
 
