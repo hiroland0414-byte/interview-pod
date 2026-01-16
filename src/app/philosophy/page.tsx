@@ -1,4 +1,4 @@
-// src/app/philosophy/page.tsx
+// src/app/philosophy/page.tsx（完成版：スマホで確実にスクロールできる＋下部ボタン固定＋安全な“既読”記録）
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -15,12 +15,15 @@ export default function PhilosophyPage() {
 
   return (
     <main className="min-h-[100svh] w-full bg-[#0b1f3a] flex justify-center">
-      <div className="w-full max-w-[430px] px-4 pt-6 pb-10">
+      <div className="w-full max-w-[430px] px-4 pt-6 pb-6">
         {/* “古い地図”カード */}
         <article
           className={[
             "rounded-[22px] border border-white/25 shadow-2xl overflow-hidden",
             "bg-[#f7f3e8]",
+            // ★ここが肝：カード自体を「画面高に合わせて」中身だけスクロール
+            "h-[calc(100svh-48px)]",
+            "flex flex-col",
           ].join(" ")}
         >
           {/* ヘッダー（地図感） */}
@@ -43,8 +46,8 @@ export default function PhilosophyPage() {
             </div>
           </header>
 
-          {/* 本文 */}
-          <section className="px-5 py-5 text-slate-900">
+          {/* ★本文スクロール領域 */}
+          <section className="flex-1 overflow-y-auto px-5 py-5 text-slate-900 overscroll-contain">
             <div className="text-[12px] leading-relaxed space-y-4">
               <h2 className="text-[14px] font-extrabold">はじめに</h2>
               <p>
@@ -146,10 +149,15 @@ export default function PhilosophyPage() {
                 <br />
                 ※ 保存されたデータはあなた自身の振り返りのためのものです。
               </p>
-            </div>
 
-            {/* ボタン */}
-            <div className="mt-6 flex items-center justify-center">
+              {/* 下部固定バーの分だけ余白（最後の段落が隠れないように） */}
+              <div className="h-[88px]" />
+            </div>
+          </section>
+
+          {/* ★下部固定アクション（スクロールとは独立） */}
+          <footer className="border-t border-black/10 bg-[#f3ecd9] px-5 py-4">
+            <div className="flex items-center justify-center">
               <button
                 type="button"
                 onClick={closeAndGoStart}
@@ -162,11 +170,10 @@ export default function PhilosophyPage() {
               </button>
             </div>
 
-            {/* ちいさな補助 */}
             <p className="mt-3 text-center text-[10px] text-slate-600">
               ※いつでも /start から再表示できます
             </p>
-          </section>
+          </footer>
         </article>
       </div>
     </main>
