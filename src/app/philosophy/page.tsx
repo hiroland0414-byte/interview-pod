@@ -41,7 +41,7 @@ export default function PhilosophyPage() {
               <p className="text-[12px] leading-relaxed text-slate-800">
                 このアプリに書かれているのは、未来の<strong>正解</strong>ではありません。
                 <br />
-                書かれているのは、<strong>近づき方（アプローチ）</strong>だけです。
+                それは、<strong>近づき方（アプローチ）</strong>だけです。
               </p>
             </div>
           </header>
@@ -84,7 +84,7 @@ export default function PhilosophyPage() {
               <p>
                 印象アップモードでは、話している内容は評価しません。
                 <br />
-                見ているのは、声の出し方・表情・目線・安定感だけです。
+                見ているのは、声の出し方・表情・目線・安定感です。
                 <br />
                 これは、<strong>話す中身を気にせず練習してほしい</strong>という意図からです。
               </p>
@@ -107,9 +107,9 @@ export default function PhilosophyPage() {
 
               <h2 className="text-[14px] font-extrabold">フィードバックの読み方</h2>
               <p>
-                フィードバックは、あなたを否定する文章ではありません。
+                フィードバックは、少し厳しく感じる部分があっても..
                 <br />
-                少し厳しく感じる部分があっても、それは「次に伸ばせる場所」が見えている証拠です。
+                それは、あなたの「次に伸ばせる場所」が見えている証拠です。
                 <br />
                 一度に直そうとしなくて大丈夫。<strong>一つだけ意識して、次に進めば十分</strong>です。
               </p>

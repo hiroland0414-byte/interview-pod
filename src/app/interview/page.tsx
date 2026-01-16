@@ -58,8 +58,6 @@ function toInterviewQuestion(
   let minChars = minCharsDefault;
   if (typeof x?.minChars === "number" && Number.isFinite(x.minChars)) {
     minChars = x.minChars;
-  } else {
-    minChars = minCharsDefault;
   }
 
   return {
@@ -77,6 +75,29 @@ function toInterviewQuestion(
 
 function stripInterim(text: string) {
   return (text || "").replace(/\n?\[interim\][\s\S]*$/s, "").trim();
+}
+
+function saveAnswerToSession(q: InterviewQuestion, text: string) {
+  if (typeof window === "undefined") return;
+
+  const raw = sessionStorage.getItem("kcareer.session.answers");
+  const arr: {
+    questionText: string;
+    answerText: string;
+    kind?: string;
+    section?: string;
+    depthLevel?: number;
+  }[] = raw ? JSON.parse(raw) : [];
+
+  arr.push({
+    questionText: q.text,
+    answerText: text,
+    kind: String((q as any)?.kind ?? ""),
+    section: (q as any)?.section ? String((q as any).section) : undefined,
+    depthLevel: typeof (q as any)?.depthLevel === "number" ? (q as any).depthLevel : undefined,
+  });
+
+  sessionStorage.setItem("kcareer.session.answers", JSON.stringify(arr));
 }
 
 export default function InterviewPage() {
@@ -98,25 +119,20 @@ export default function InterviewPage() {
   // 音声入力
   const [listening, setListening] = useState(false);
   const recogRef = useRef<SpeechRecognitionLike | null>(null);
-  const interimRef = useRef<string>("");
 
-  // ✅ 音声の安定化（復帰＆重複防止）
-  const wantListeningRef = useRef(false);
-  const restartingRef = useRef(false);
-  const lastFinalAllRef = useRef<string>(""); // final累積（差分取り用）
+  // ✅ 確定テキストを一本化して「増殖」を防ぐ
+  const finalTextRef = useRef<string>("");
+  const lastFinalSegmentRef = useRef<string>("");
 
   const currentQ = queue[index];
   const modeLabel = useMemo(() => MODE_LABEL[mode], [mode]);
 
-  // 質問が切り替わったらヒントは閉じる（開きっぱなし防止）
-  useEffect(() => {
-    setHintOpen(false);
-  }, [index]);
+  // 質問が切り替わったらヒントは閉じる
+  useEffect(() => setHintOpen(false), [index]);
 
   const charCount = useMemo(() => (answer || "").replace(/\s/g, "").length, [answer]);
   const minChars = useMemo(() => currentQ?.minChars ?? 120, [currentQ]);
 
-  // ---- 質問タイプ判定（追加＝制限なし）----
   const kindStr = String((currentQ as any)?.kind ?? "");
   const idStr = String((currentQ as any)?.id ?? "");
 
@@ -128,7 +144,6 @@ export default function InterviewPage() {
     !!inferQuestionTypeFromSection(currentQ?.section);
 
   const isCoreOrDeepDive = !isAdditional || (currentQ?.depthLevel ?? 0) > 0;
-
   const isValid = isCoreOrDeepDive ? charCount >= minChars : true;
 
   const progress = useMemo(() => {
@@ -197,6 +212,8 @@ export default function InterviewPage() {
         setQueue(normalized);
         setIndex(0);
         setAnswer("");
+        finalTextRef.current = "";
+        lastFinalSegmentRef.current = "";
       } catch (e: any) {
         if (e?.name === "AbortError") return;
         console.error(e);
@@ -211,8 +228,6 @@ export default function InterviewPage() {
 
   // -----------------------------
   // 音声入力セットアップ（Chrome/Android想定）
-  //  - onend 自動復帰
-  //  - final差分取りで重複防止
   // -----------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -225,134 +240,67 @@ export default function InterviewPage() {
     recog.interimResults = true;
     recog.continuous = true;
 
-    const safeStart = () => {
-      if (!wantListeningRef.current) return;
-      if (restartingRef.current) return;
-      restartingRef.current = true;
-
-      window.setTimeout(() => {
-        try {
-          recog.abort?.();
-        } catch {}
-        try {
-          recog.start();
-          setListening(true);
-        } catch {}
-        restartingRef.current = false;
-      }, 250);
-    };
-
     recog.onresult = (event: any) => {
-      let interim = "";
-      let finalAll = "";
-
-      for (let i = 0; i < event.results.length; i++) {
-        const res = event.results[i];
-        const text = res[0]?.transcript ?? "";
-        if (res.isFinal) finalAll += text;
-      }
-
+      // resultIndex以降の「新規分」だけ処理
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const res = event.results[i];
-        const text = res[0]?.transcript ?? "";
-        if (!res.isFinal) interim += text;
-      }
+        const raw = String(res?.[0]?.transcript ?? "");
 
-      interimRef.current = correctLightRealtime(interim);
+        if (!raw) continue;
 
-      const safeFinalAll = correctLightRealtime(finalAll);
-      const prevAll = lastFinalAllRef.current;
+        if (res.isFinal) {
+          const seg = correctLightRealtime(raw).trim();
 
-      let delta = safeFinalAll;
-      if (prevAll && safeFinalAll.startsWith(prevAll)) {
-        delta = safeFinalAll.slice(prevAll.length);
-      }
-      lastFinalAllRef.current = safeFinalAll;
-
-      if (delta && delta.trim().length > 0) {
-        setAnswer((prev: string) => {
-          const base = prev.replace(/\n?\[interim\][\s\S]*$/s, "");
-          return (base + delta).trimStart();
-        });
+          // ✅ 同一セグメント連発ガード（端末によって同じfinalを返すことがある）
+          if (seg && seg !== lastFinalSegmentRef.current) {
+            finalTextRef.current = (finalTextRef.current + seg).trimStart();
+            lastFinalSegmentRef.current = seg;
+            setAnswer(finalTextRef.current);
+          }
+        } else {
+          // interimは表示しない（必要ならここでUIに出せる）
+          // const interim = correctLightRealtime(raw);
+          // setAnswer(finalTextRef.current + "\n[interim]" + interim);
+        }
       }
     };
 
-    recog.onerror = (e: any) => {
-      const err = String(e?.error ?? "");
-      setListening(false);
-
-      if (err.includes("not-allowed") || err.includes("service-not-allowed")) {
-        wantListeningRef.current = false;
-        return;
-      }
-      safeStart();
-    };
-
-    recog.onend = () => {
-      setListening(false);
-      safeStart();
-    };
+    recog.onerror = () => setListening(false);
+    recog.onend = () => setListening(false);
 
     recogRef.current = recog;
 
-    const onVis = () => {
-      if (document.hidden) {
-        try {
-          recog.stop?.();
-        } catch {}
-      } else {
-        safeStart();
-      }
-    };
-    document.addEventListener("visibilitychange", onVis);
-
     return () => {
-      document.removeEventListener("visibilitychange", onVis);
-      wantListeningRef.current = false;
       try {
-        recog.stop?.();
-      } catch {}
+        recog.stop();
+      } catch {
+        // noop
+      }
       recogRef.current = null;
     };
   }, []);
 
-  function saveAnswerToSession(q: InterviewQuestion, text: string) {
-    if (typeof window === "undefined") return;
-
-    const raw = sessionStorage.getItem("kcareer.session.answers");
-    const arr: {
-      questionText: string;
-      answerText: string;
-      kind?: string;
-      section?: string;
-      depthLevel?: number;
-    }[] = raw ? JSON.parse(raw) : [];
-
-    arr.push({
-      questionText: q.text,
-      answerText: text,
-      kind: String((q as any)?.kind ?? ""),
-      section: (q as any)?.section ? String((q as any).section) : undefined,
-      depthLevel: typeof (q as any)?.depthLevel === "number" ? (q as any).depthLevel : undefined,
-    });
-
-    sessionStorage.setItem("kcareer.session.answers", JSON.stringify(arr));
-  }
-
   async function stopAndFinalizeSpeechIfNeeded(): Promise<string> {
     const rawNow = stripInterim(answer);
 
-    if (!wantListeningRef.current) {
-      return correctStrictFinal(rawNow).text;
+    if (!listening) {
+      const fixed = correctStrictFinal(rawNow).text;
+      return fixed;
     }
 
-    wantListeningRef.current = false;
     try {
       recogRef.current?.stop?.();
-    } catch {}
+    } catch {
+      // noop
+    }
 
     const fixed = correctStrictFinal(rawNow).text;
+
+    // ✅ stop時点でRefも同期
+    finalTextRef.current = fixed;
+    lastFinalSegmentRef.current = "";
     setAnswer(fixed);
+
     setListening(false);
     return fixed;
   }
@@ -364,30 +312,20 @@ export default function InterviewPage() {
       return;
     }
 
-    if (wantListeningRef.current) {
+    if (listening) {
       await stopAndFinalizeSpeechIfNeeded();
       return;
     }
 
-    wantListeningRef.current = true;
-    lastFinalAllRef.current = "";
-    setAnswer((prev) => stripInterim(prev));
-    interimRef.current = "";
+    const base = stripInterim(answer);
+    finalTextRef.current = base;
+    lastFinalSegmentRef.current = "";
 
     try {
       recog.start();
       setListening(true);
     } catch {
-      try {
-        recog.abort?.();
-      } catch {}
-      try {
-        recog.start();
-        setListening(true);
-      } catch {
-        alert("音声入力を開始できませんでした（マイク許可を確認してください）");
-        wantListeningRef.current = false;
-      }
+      alert("音声入力を開始できませんでした（マイク許可を確認してください）");
     }
   }
 
@@ -397,18 +335,18 @@ export default function InterviewPage() {
   async function onNext() {
     if (!currentQ || isLoading) return;
     if (isAdvancing) return;
+
     setIsAdvancing(true);
 
     try {
       const finalized = await stopAndFinalizeSpeechIfNeeded();
       const cleaned = stripInterim(finalized);
 
-      // ✅ 制限は「三大質問＋深掘り」だけ
       if (isCoreOrDeepDive) {
         if (cleaned.replace(/\s/g, "").length < minChars) return;
       }
 
-      // ✅ 追加質問は未回答でも触れない：空なら保存せず次へ
+      // 追加質問は未回答なら保存せず次へ
       if (cleaned.length > 0) {
         saveAnswerToSession(currentQ, cleaned);
       }
@@ -487,6 +425,8 @@ export default function InterviewPage() {
 
       setIndex(nextIndex);
       setAnswer("");
+      finalTextRef.current = "";
+      lastFinalSegmentRef.current = "";
     } finally {
       setIsAdvancing(false);
     }
@@ -495,12 +435,13 @@ export default function InterviewPage() {
   const current = index + 1;
   const total = queue.length;
 
+  // ✅ ここがスクロール問題の“本丸”：
+  // - 画面全体は固定
+  // - カード内を flex で分割し、本文だけ overflow-y-auto
   return (
-    // ✅ 外側を overflow-hidden にしない（スクロールを殺す）
-    <main className="min-h-[100svh] w-full bg-slate-100 flex justify-center overflow-y-auto">
-      <div className="w-[390px] max-w-[92vw] py-2 pb-6">
-        {/* ✅ 画面内でスクロール可能にする */}
-        <div className="relative w-full rounded-[28px] overflow-hidden shadow-2xl border border-white/30 max-h-[calc(100svh-16px)] overflow-y-auto">
+    <main className="fixed inset-0 w-full bg-slate-100 flex justify-center">
+      <div className="w-full max-w-[390px] h-[100svh] px-3 pt-2 pb-3">
+        <div className="relative h-full w-full rounded-[28px] overflow-hidden shadow-2xl border border-white/30">
           {/* 背景 */}
           <div
             className="absolute inset-0"
@@ -515,165 +456,182 @@ export default function InterviewPage() {
           />
           <div className="absolute inset-0 bg-sky-950/35" />
 
-          {/* 中身 */}
-          <div className="relative px-5 pt-4 pb-5">
-            <div className="mt-4 text-center">
-              <h1
-                className="text-[30px] font-extrabold text-white tracking-wide"
-                style={{ textShadow: "0 2px 10px rgba(0,0,0,0.35)" }}
-              >
-                面接トレーニング
-              </h1>
-              <p
-                className="mt-1 text-[14px] font-semibold text-white/95"
-                style={{ textShadow: "0 2px 10px rgba(0,0,0,0.35)" }}
-              >
-                Dialogue Trainer for Med. Interview
-              </p>
-              <p className="mt-2 text-[14px] font-extrabold text-red-500">{modeLabel}</p>
+          {/* レイアウト枠 */}
+          <div className="relative z-10 h-full flex flex-col">
+            {/* ヘッダー（固定） */}
+            <div className="px-5 pt-4">
+              <div className="mt-2 text-center">
+                <h1
+                  className="text-[30px] font-extrabold text-white tracking-wide"
+                  style={{ textShadow: "0 2px 10px rgba(0,0,0,0.35)" }}
+                >
+                  面接トレーニング
+                </h1>
+                <p
+                  className="mt-1 text-[14px] font-semibold text-white/95"
+                  style={{ textShadow: "0 2px 10px rgba(0,0,0,0.35)" }}
+                >
+                  Dialogue Trainer for Med. Interview
+                </p>
+                <p className="mt-2 text-[14px] font-extrabold text-red-500">{modeLabel}</p>
+              </div>
             </div>
 
-            <div className="mt-4 rounded-[22px] border-2 border-white/55 p-4 bg-sky-100/85 shadow-[0_10px_30px_rgba(0,0,0,0.18)]">
-              <div className="flex items-center justify-between">
-                <span className="text-[12px] font-bold text-slate-700">進行</span>
-                <span className="text-[12px] font-bold text-slate-700">
-                  {isLoading ? "-" : `${current} / ${total}`}
-                </span>
-              </div>
-
-              <div className="mt-2 h-3 rounded-full bg-slate-200 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-emerald-500 transition-all"
-                  style={{ width: `${progress * 100}%` }}
-                />
-              </div>
-
-              <div className="mt-4 relative rounded-[18px] border border-white/70 bg-white/55 p-4">
-                <div className="pr-10">
-                  <p className="text-[18px] font-extrabold text-slate-800 leading-snug">
-                    {isLoading ? "読み込み中..." : currentQ?.text || "（質問がありません）"}
-                  </p>
+            {/* 本文（スクロール領域） */}
+            <div className="flex-1 overflow-y-auto px-5 pt-4 pb-4">
+              <div className="rounded-[22px] border-2 border-white/55 p-4 bg-sky-100/85 shadow-[0_10px_30px_rgba(0,0,0,0.18)]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] font-bold text-slate-700">進行</span>
+                  <span className="text-[12px] font-bold text-slate-700">
+                    {isLoading ? "-" : `${current} / ${total}`}
+                  </span>
                 </div>
 
-                {isThreeMajorMain && (
-                  <button
-                    type="button"
-                    className="absolute top-3 right-3 w-8 h-8 rounded-full bg-sky-200/70 border border-white/70 flex items-center justify-center text-slate-700 font-black"
-                    title="ヒント"
-                    onClick={() => setHintOpen(true)}
-                  >
-                    ?
-                  </button>
-                )}
+                <div className="mt-2 h-3 rounded-full bg-slate-200 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all"
+                    style={{ width: `${progress * 100}%` }}
+                  />
+                </div>
 
-                {hintOpen && (
-                  <div className="absolute inset-0 z-20 flex items-center justify-center p-4">
+                <div className="mt-4 relative rounded-[18px] border border-white/70 bg-white/55 p-4">
+                  {/* 質問文 */}
+                  <div className="pr-10">
+                    <p className="text-[18px] font-extrabold text-slate-800 leading-snug">
+                      {isLoading ? "読み込み中..." : currentQ?.text || "（質問がありません）"}
+                    </p>
+                  </div>
+
+                  {/* 「？」ボタン */}
+                  {isThreeMajorMain && (
                     <button
                       type="button"
-                      className="absolute inset-0 bg-black/40"
-                      onClick={() => setHintOpen(false)}
-                      aria-label="close hint overlay"
-                    />
+                      className="absolute top-3 right-3 w-8 h-8 rounded-full bg-sky-200/70 border border-white/70 flex items-center justify-center text-slate-700 font-black"
+                      title="ヒント"
+                      onClick={() => setHintOpen(true)}
+                    >
+                      ?
+                    </button>
+                  )}
 
-                    <div className="relative w-full max-w-[320px] rounded-2xl bg-white p-4 shadow-xl border border-slate-200">
-                      <div className="flex items-start justify-between">
-                        <h3 className="text-[14px] font-extrabold text-slate-800">ヒント</h3>
-                        <button
-                          type="button"
-                          className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-black"
-                          onClick={() => setHintOpen(false)}
-                          aria-label="close hint"
-                        >
-                          ×
-                        </button>
-                      </div>
+                  {/* ヒントカード */}
+                  {hintOpen && (
+                    <div className="absolute inset-0 z-20 flex items-center justify-center p-4">
+                      <button
+                        type="button"
+                        className="absolute inset-0 bg-black/40"
+                        onClick={() => setHintOpen(false)}
+                        aria-label="close hint overlay"
+                      />
+                      <div className="relative w-full max-w-[320px] rounded-2xl bg-white p-4 shadow-xl border border-slate-200">
+                        <div className="flex items-start justify-between">
+                          <h3 className="text-[14px] font-extrabold text-slate-800">ヒント</h3>
+                          <button
+                            type="button"
+                            className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-black"
+                            onClick={() => setHintOpen(false)}
+                            aria-label="close hint"
+                          >
+                            ×
+                          </button>
+                        </div>
 
-                      <p className="mt-2 text-[13px] leading-relaxed text-slate-700 whitespace-pre-wrap">
-                        {currentQ?.hint || "ヒントはありません"}
-                      </p>
+                        <p className="mt-2 text-[13px] leading-relaxed text-slate-700 whitespace-pre-wrap">
+                          {currentQ?.hint || "ヒントはありません"}
+                        </p>
 
-                      <div className="mt-4 flex justify-end">
-                        <button
-                          type="button"
-                          className="rounded-xl bg-sky-200 px-4 py-2 text-[12px] font-bold text-slate-800"
-                          onClick={() => setHintOpen(false)}
-                        >
-                          閉じる
-                        </button>
+                        <div className="mt-4 flex justify-end">
+                          <button
+                            type="button"
+                            className="rounded-xl bg-sky-200 px-4 py-2 text-[12px] font-bold text-slate-800"
+                            onClick={() => setHintOpen(false)}
+                          >
+                            閉じる
+                          </button>
+                        </div>
                       </div>
                     </div>
+                  )}
+
+                  {/* 回答欄 */}
+                  <textarea
+                    className="mt-3 w-full min-h-[220px] rounded-[16px] border border-slate-300 bg-white p-3 text-[14px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300"
+                    placeholder="ここに回答を入力してください。"
+                    value={answer}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setAnswer(v);
+                      // ✅ 手入力をしたらRefも追従（音声再開時に混ざらない）
+                      finalTextRef.current = stripInterim(v);
+                      lastFinalSegmentRef.current = "";
+                    }}
+                  />
+
+                  <div className="mt-2 flex items-center justify-between">
+                    <div className="text-[12px] font-bold text-slate-700">
+                      {charCount}文字
+                      {isCoreOrDeepDive && (
+                        <span className={isValid ? "text-emerald-700" : "text-red-500"}>
+                          {" "}
+                          （{minChars}文字以上が必要）
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[12px] font-bold text-slate-500">
+                      kind: <span className="text-slate-700">{String((currentQ as any)?.kind || "-")}</span>
+                    </div>
                   </div>
-                )}
 
-                <textarea
-                  className="mt-3 w-full min-h-[220px] rounded-[16px] border border-slate-300 bg-white p-3 text-[14px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300"
-                  placeholder="ここに回答を入力してください。"
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
-                />
-
-                <div className="mt-2 flex items-center justify-between">
-                  <div className="text-[12px] font-bold text-slate-700">
-                    {charCount}文字
-                    {isCoreOrDeepDive && (
-                      <span className={isValid ? "text-emerald-700" : "text-red-500"}>
-                        {" "}
-                        （{minChars}文字以上が必要）
-                      </span>
-                    )}
+                  <div className="mt-3 text-[12px] leading-relaxed text-slate-700 font-semibold">
+                    <p>テキスト入力／音声入力のどちらも利用できます。</p>
+                    <p>上手く認識しない場合はテキストで入力して下さい。</p>
+                    <p>※「まる」と音声入力すると句点を付けられます。</p>
                   </div>
-                  <div className="text-[12px] font-bold text-slate-500">
-                    kind:{" "}
-                    <span className="text-slate-700">{String((currentQ as any)?.kind || "-")}</span>
+
+                  <div className="mt-4 flex items-center justify-between">
+                    <p className="text-[11px] text-slate-600 font-semibold">
+                      Android/Chrome は右の🎤で音声入力。iPhone はキーボードのマイクをご利用ください。
+                    </p>
+
+                    <button
+                      type="button"
+                      className={[
+                        "ml-3 shrink-0 w-14 h-14 rounded-full border-2 shadow flex items-center justify-center transition",
+                        listening ? "bg-red-100 border-red-200" : "bg-white/80 border-slate-200",
+                      ].join(" ")}
+                      title="音声入力"
+                      onClick={toggleSpeech}
+                    >
+                      <span className="text-[22px]">{listening ? "⏹" : "🎤"}</span>
+                    </button>
                   </div>
-                </div>
-
-                <div className="mt-3 text-[12px] leading-relaxed text-slate-700 font-semibold">
-                  <p>テキスト入力／音声入力のどちらも利用できます。</p>
-                  <p>上手く認識しない場合はテキストで入力して下さい。</p>
-                  <p>※「まる」と音声入力すると句点を付けられます。</p>
-                </div>
-
-                <div className="mt-4 flex items-center justify-between">
-                  <p className="text-[11px] text-slate-600 font-semibold">
-                    Android/Chrome は右の🎤で音声入力。iPhone はキーボードのマイクをご利用ください。
-                  </p>
-
-                  <button
-                    type="button"
-                    className={[
-                      "ml-3 shrink-0 w-14 h-14 rounded-full border-2 shadow flex items-center justify-center transition",
-                      listening ? "bg-red-100 border-red-200" : "bg-white/80 border-slate-200",
-                    ].join(" ")}
-                    title="音声入力"
-                    onClick={toggleSpeech}
-                  >
-                    <span className="text-[22px]">{wantListeningRef.current ? "⏹" : "🎤"}</span>
-                  </button>
                 </div>
               </div>
             </div>
 
-            <div className="mt-5 flex justify-center">
-              <button
-                type="button"
-                onClick={onNext}
-                disabled={!isValid || isLoading || !currentQ || isAdvancing}
-                className={[
-                  "w-[240px] h-[56px] rounded-full font-extrabold text-[18px] shadow-lg transition-all",
-                  isValid && !isLoading && currentQ && !isAdvancing
-                    ? "bg-sky-300 text-slate-900 hover:bg-sky-200"
-                    : "bg-slate-300 text-slate-500 cursor-not-allowed",
-                ].join(" ")}
-                style={{ textShadow: isValid ? "0 1px 0 rgba(255,255,255,0.35)" : "none" }}
-              >
-                次へ
-              </button>
+            {/* フッター（固定） */}
+            <div className="px-5 pb-3 pt-1">
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={onNext}
+                  disabled={!isValid || isLoading || !currentQ || isAdvancing}
+                  className={[
+                    "w-[240px] h-[56px] rounded-full font-extrabold text-[18px] shadow-lg transition-all",
+                    isValid && !isLoading && currentQ && !isAdvancing
+                      ? "bg-sky-300 text-slate-900 hover:bg-sky-200"
+                      : "bg-slate-300 text-slate-500 cursor-not-allowed",
+                  ].join(" ")}
+                  style={{ textShadow: isValid ? "0 1px 0 rgba(255,255,255,0.35)" : "none" }}
+                >
+                  次へ
+                </button>
+              </div>
             </div>
           </div>
+          {/* /layout */}
         </div>
       </div>
     </main>
   );
 }
-
