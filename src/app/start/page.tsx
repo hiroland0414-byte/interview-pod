@@ -141,10 +141,10 @@ export default function StartPage() {
               {/* タイトル */}
               <div className="mt-4 text-center">
                 <h1
-                  className="text-[22px] font-extrabold tracking-wide text-white"
+                  className="text-[16px] font-extrabold tracking-wide text-white"
                   style={{ textShadow: "0 2px 2px rgba(0,0,0,0.45)" }}
                 >
-                  医療系面接 基礎トレーナー（β）
+                  医療系面接 基礎トレーナー（β板）
                 </h1>
                 <p
                   className="mt-2 text-[12px] font-semibold text-white/90"
