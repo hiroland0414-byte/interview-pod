@@ -570,8 +570,7 @@ export default function InterviewPage() {
               >
                 面接トレーニング
               </h1>
-              <p className="mt-2 text-[14px] font-extrabold text-red-500">{modeLabel}</p>
-            </div>
+             </div>
 
             <div className="mt-4 rounded-[22px] border-2 border-white/55 p-4 bg-sky-100/85 shadow-[0_10px_30px_rgba(0,0,0,0.18)]">
               <div className="flex items-center justify-between">
@@ -738,7 +737,7 @@ export default function InterviewPage() {
                   className={[
                     "flex-1 h-[56px] rounded-full font-extrabold text-[16px] shadow-lg transition-all",
                     isValid && !isLoading && currentQ && !isAdvancing
-                      ? "bg-sky-300 text-slate-900 hover:bg-sky-200"
+                      ? "bg-emerald-300 text-slate-900 hover:bg-sky-200"
                       : "bg-slate-300 text-slate-500 cursor-not-allowed",
                   ].join(" ")}
                   style={{ textShadow: isValid ? "0 1px 0 rgba(255,255,255,0.35)" : "none" }}
