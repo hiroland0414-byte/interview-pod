@@ -34,7 +34,11 @@ type SpeechRecognitionLike = any;
 
 const asText = (v: unknown) => (v == null ? "" : String(v)).trim();
 
-function toInterviewQuestion(x: any, mode: ModeTag, minCharsDefault = 120): InterviewQuestion | null {
+function toInterviewQuestion(
+  x: any,
+  mode: ModeTag,
+  minCharsDefault = 120
+): InterviewQuestion | null {
   const id = asText(x?.id);
   const text = asText(x?.text) || asText(x?.question) || asText(x?.questionText);
   if (!id || !text) return null;
@@ -75,6 +79,10 @@ function stripInterim(text: string) {
   return (text || "").replace(/\n?\[interim\][\s\S]*$/s, "").trim();
 }
 
+function draftKey(mode: ModeTag, qid: string) {
+  return `kcareer.draft.${mode}.${qid}`;
+}
+
 export default function InterviewPage() {
   const router = useRouter();
 
@@ -95,22 +103,26 @@ export default function InterviewPage() {
   const [listening, setListening] = useState(false);
   const recogRef = useRef<SpeechRecognitionLike | null>(null);
 
-  // ✅ ユーザーが「録音継続したい」意思（onend対策）
-  const wantListeningRef = useRef(false);
-  // ✅ 認識された “最終全文” の変化監視（増殖対策）
-  const lastFinalAllRef = useRef("");
-  // ✅ 録音開始時点のテキスト（手入力分）を保持
-  const baseTextRef = useRef("");
+  // ✅ 音声入力の“確定済み”テキスト（リセット対策の要）
+  const committedRef = useRef<string>("");
+
+  // ✅ ユーザーが停止を押したか（押してない停止＝無音停止なので自動再開）
+  const stopRequestedRef = useRef<boolean>(false);
+
+  // ✅ 再起動スパム防止
+  const restartTimerRef = useRef<number | null>(null);
 
   const currentQ = queue[index];
   const modeLabel = useMemo(() => MODE_LABEL[mode], [mode]);
 
-  // 質問が切り替わったらヒントは閉じる
+  // 質問が切り替わったらヒントは閉じる（開きっぱなし防止）
   useEffect(() => {
     setHintOpen(false);
   }, [index]);
 
   const charCount = useMemo(() => (answer || "").replace(/\s/g, "").length, [answer]);
+
+  // 追加質問は minChars を使わないが、三大/深掘りのために一応算出
   const minChars = useMemo(() => currentQ?.minChars ?? 120, [currentQ]);
 
   // ---- 質問タイプ判定（追加＝制限なし）----
@@ -124,10 +136,8 @@ export default function InterviewPage() {
     (currentQ?.depthLevel ?? 0) === 0 &&
     !!inferQuestionTypeFromSection(currentQ?.section);
 
-  // 深掘りは必ず制限あり（depthLevel>0 は制限側）
   const isCoreOrDeepDive = !isAdditional || (currentQ?.depthLevel ?? 0) > 0;
 
-  // 文字数制限：三大質問＋深掘りのみ有効（追加は常にOK）
   const isValid = isCoreOrDeepDive ? charCount >= minChars : true;
 
   const progress = useMemo(() => {
@@ -177,7 +187,6 @@ export default function InterviewPage() {
 
         const q = [...core, ...additional];
 
-        // 三大質問“本体”だけ minChars を維持、それ以外は 120
         const normalized = q.map((qq: any) => {
           const depth = qq?.depthLevel ?? 0;
           const section = String(qq?.section ?? "").toLowerCase();
@@ -197,6 +206,7 @@ export default function InterviewPage() {
         setQueue(normalized);
         setIndex(0);
         setAnswer("");
+        committedRef.current = "";
       } catch (e: any) {
         if (e?.name === "AbortError") return;
         console.error(e);
@@ -210,7 +220,47 @@ export default function InterviewPage() {
   }, [router]);
 
   // -----------------------------
-  // 音声入力セットアップ（Android/Chrome向けの安定版）
+  // ✅ 質問が変わるたびに「下書き復元」＋ 音声の確定バッファを同期
+  // -----------------------------
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!currentQ) return;
+
+    // 音声入力中なら、質問切替時に止める（事故防止）
+    if (listening) {
+      stopRequestedRef.current = true;
+      try {
+        recogRef.current?.stop?.();
+      } catch {}
+      setListening(false);
+    }
+
+    try {
+      const saved = sessionStorage.getItem(draftKey(mode, currentQ.id));
+      const v = saved ? String(saved) : "";
+      setAnswer(v);
+      committedRef.current = v; // ✅ ここが重要：音声追記の土台を「現在の回答」に合わせる
+    } catch {
+      setAnswer("");
+      committedRef.current = "";
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQ?.id, mode]);
+
+  // -----------------------------
+  // ✅ 回答が変わるたびに「下書き保存」
+  // -----------------------------
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!currentQ) return;
+
+    try {
+      sessionStorage.setItem(draftKey(mode, currentQ.id), answer);
+    } catch {}
+  }, [answer, currentQ, mode]);
+
+  // -----------------------------
+  // 音声入力セットアップ（Chrome/Android想定）
   // -----------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -222,63 +272,65 @@ export default function InterviewPage() {
     recog.lang = "ja-JP";
     recog.interimResults = true;
 
-    // ✅ 端末差が激しいので false + onend自動復帰が安定しやすい
+    // ✅ continuous=true は端末によって暴れるので、再起動設計を前提に false 寄りが安定
+    // （Android Chrome は無音で勝手に切る → onend で自動再開する）
     recog.continuous = false;
 
-recog.onresult = (event: any) => {
-  // ✅ その回で確定した final だけ拾う（continuous=false前提）
-  let finalText = "";
-  for (let i = event.resultIndex; i < event.results.length; i++) {
-    const r = event.results[i];
-    if (r?.isFinal) finalText += String(r[0]?.transcript ?? "");
-  }
+    recog.onresult = (event: any) => {
+      let interim = "";
+      let finalText = "";
 
-  const fixed = correctLightRealtime(finalText).trim();
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const res = event.results[i];
+        const text = res[0]?.transcript ?? "";
+        if (res.isFinal) finalText += text;
+        else interim += text;
+      }
 
-  // ✅ 何も確定してない時に、空で上書きしない
-  if (!fixed) return;
+      const safeInterim = correctLightRealtime(interim);
+      const safeFinal = correctLightRealtime(finalText);
 
-  // ✅ 同じ確定文の連発を無視（増殖＆二重反映対策）
-  if (fixed === lastFinalAllRef.current) return;
-  lastFinalAllRef.current = fixed;
+      // ✅ final は committed に足す（ここが“リセットしない”要）
+      if (safeFinal) {
+        committedRef.current = (committedRef.current + safeFinal).trimStart();
+      }
 
-  // ✅ 「古いbase」ではなく、いまのbaseに追記して確定させる
-  const next = (baseTextRef.current + fixed).trimStart();
-
-  // ✅ 画面に反映
-  setAnswer(next);
-
-  // ✅ ここが本丸：確定したら base を最新に更新
-  // これで無音→onend→再開しても、消えない
-  baseTextRef.current = next;
-};
+      // 表示は「committed + interim」
+      const merged = (committedRef.current + safeInterim).trimStart();
+      setAnswer(merged);
+    };
 
     recog.onerror = () => {
+      // エラーのときは一旦止める（端末依存の暴走防止）
       setListening(false);
-      // onend 側で復帰（権限/一時エラーでも暴走しにくい）
     };
 
     recog.onend = () => {
-      setListening(false);
-
-      // ✅ ユーザーが「録音継続」意思なら自動復帰
-      if (wantListeningRef.current) {
-        window.setTimeout(() => {
+      // ✅ 無音などで勝手に止まった場合：ユーザーが停止していないなら再開
+      if (!stopRequestedRef.current) {
+        if (restartTimerRef.current) window.clearTimeout(restartTimerRef.current);
+        restartTimerRef.current = window.setTimeout(() => {
           try {
             recog.start();
             setListening(true);
           } catch {
-            // start失敗は無視（連打や権限など）
+            setListening(false);
           }
-        }, 250);
+        }, 200);
+        return;
       }
+      // ユーザー停止のときだけ完全停止
+      setListening(false);
     };
 
     recogRef.current = recog;
 
     return () => {
-      wantListeningRef.current = false;
+      if (restartTimerRef.current) window.clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+
       try {
+        stopRequestedRef.current = true;
         recog.stop();
       } catch {}
       recogRef.current = null;
@@ -288,23 +340,24 @@ recog.onresult = (event: any) => {
   async function stopAndFinalizeSpeechIfNeeded(): Promise<string> {
     const rawNow = stripInterim(answer);
 
-    if (!wantListeningRef.current) {
-      return correctStrictFinal(rawNow).text;
+    // listening=false でも整形はかける
+    if (!listening) {
+      const fixed = correctStrictFinal(rawNow).text;
+      committedRef.current = fixed; // ✅ committed も同期
+      return fixed;
     }
 
-    wantListeningRef.current = false;
+    // ✅ 手動停止フラグ
+    stopRequestedRef.current = true;
+
     try {
       recogRef.current?.stop?.();
     } catch {}
 
     const fixed = correctStrictFinal(rawNow).text;
     setAnswer(fixed);
+    committedRef.current = fixed; // ✅ ここで“確定”を保持
     setListening(false);
-
-    // 次回のためにリセット
-    lastFinalAllRef.current = "";
-    baseTextRef.current = fixed ? fixed + "" : "";
-
     return fixed;
   }
 
@@ -315,29 +368,21 @@ recog.onresult = (event: any) => {
       return;
     }
 
-    // stop
-    if (wantListeningRef.current) {
-      wantListeningRef.current = false;
-      try {
-        recog.stop();
-      } catch {}
-      setListening(false);
+    // 停止
+    if (listening) {
+      await stopAndFinalizeSpeechIfNeeded();
       return;
     }
 
-    // start
-    wantListeningRef.current = true;
-
-    const base = stripInterim(answer);
-    baseTextRef.current = base ? base + "" : "";
-    lastFinalAllRef.current = "";
+    // 開始：今のテキストを committed としてセット（追記設計）
+    committedRef.current = stripInterim(answer);
+    stopRequestedRef.current = false;
 
     try {
       recog.start();
       setListening(true);
     } catch {
       alert("音声入力を開始できませんでした（マイク許可を確認してください）");
-      wantListeningRef.current = false;
       setListening(false);
     }
   }
@@ -377,17 +422,19 @@ recog.onresult = (event: any) => {
       const finalized = await stopAndFinalizeSpeechIfNeeded();
       const cleaned = stripInterim(finalized);
 
-      // 制限は「三大質問＋深掘り」だけ
       if (isCoreOrDeepDive) {
         if (cleaned.replace(/\s/g, "").length < minChars) return;
       }
 
-      // 追加質問は空なら保存せず次へ
       if (cleaned.length > 0) {
         saveAnswerToSession(currentQ, cleaned);
       }
 
-      // 三大質問の core本体だけ深掘り差し込み
+      // ✅ 下書きは次へ進む時点で消す（再開時の混乱防止）
+      try {
+        sessionStorage.removeItem(draftKey(mode, currentQ.id));
+      } catch {}
+
       const k = String((currentQ as any).kind ?? "");
       const isCoreMain =
         (k === "core" || k === "coreDepth" || k === "core-depth") &&
@@ -410,7 +457,6 @@ recog.onresult = (event: any) => {
             maxDeepDives: 3,
           });
 
-          // 三大質問本体以外は minChars=120 に固定（deepDiveも含む）
           nextQueue = nextQueue.map((qq: any) => {
             const depth = qq?.depthLevel ?? 0;
             const section = String(qq?.section ?? "").toLowerCase();
@@ -440,7 +486,6 @@ recog.onresult = (event: any) => {
           }
           sessionStorage.setItem("kcareer.session.mode", mode);
 
-          // フィードバック生成（ローカル版）
           try {
             const rawAnswers = sessionStorage.getItem("kcareer.session.answers");
             const qa = rawAnswers ? JSON.parse(rawAnswers) : [];
@@ -462,11 +507,10 @@ recog.onresult = (event: any) => {
       }
 
       setIndex(nextIndex);
-      setAnswer("");
 
-      // ✅ 次の質問へ行ったら、音声用の「ベース」も更新しておく（事故予防）
-      baseTextRef.current = "";
-      lastFinalAllRef.current = "";
+      // ✅ 次の質問へ：answer は復元useEffectが動くので、ここでは空にしない方が安全
+      setAnswer("");
+      committedRef.current = "";
     } finally {
       setIsAdvancing(false);
     }
@@ -475,16 +519,12 @@ recog.onresult = (event: any) => {
   const current = index + 1;
   const total = queue.length;
 
-  // =============================
-  // ✅ ここがスクロール修正の本丸
-  // - main を h固定しない
-  // - 中央カードに max-height + overflow-y-auto を持たせる
-  // =============================
   return (
-    <main className="min-h-[100svh] w-full bg-slate-100 flex justify-center">
-      <div className="w-[390px] max-w-[92vw] px-3 pt-2 pb-6">
-        <div className="relative w-full rounded-[28px] overflow-hidden shadow-2xl border border-white/30">
-          {/* 背景 */}
+    <main className="relative w-full h-[100svh] overflow-hidden flex justify-center bg-slate-100">
+      {/* ✅ 外枠：ここを広げたいなら w-[390px] / max-w を触る */}
+      <div className="w-[390px] max-w-[92vw] h-[100svh] flex items-start justify-center pt-2 pb-6">
+        {/* ✅ 1画面に収めつつ、中だけスクロールさせるための“器” */}
+        <div className="relative w-full h-[calc(100svh-16px)] rounded-[28px] overflow-hidden shadow-2xl border border-white/30">
           <div
             className="absolute inset-0"
             style={{
@@ -498,169 +538,163 @@ recog.onresult = (event: any) => {
           />
           <div className="absolute inset-0 bg-sky-950/35" />
 
-          {/* ✅ スクロール領域 */}
-          <div className="relative max-h-[calc(100svh-24px)] overflow-y-auto overscroll-contain">
-            <div className="px-5 pt-4 pb-6">
-              <div className="mt-4 text-center">
-                <h1
-                  className="text-[30px] font-extrabold text-white tracking-wide"
-                  style={{ textShadow: "0 2px 10px rgba(0,0,0,0.35)" }}
-                >
-                  面接トレーニング
-                </h1>
-                <p
-                  className="mt-1 text-[14px] font-semibold text-white/95"
-                  style={{ textShadow: "0 2px 10px rgba(0,0,0,0.35)" }}
-                >
-                  Dialogue Trainer for Med. Interview
-                </p>
-                <p className="mt-2 text-[14px] font-extrabold text-red-500">{modeLabel}</p>
+          {/* ✅ ここがスクロール本体 */}
+          <div className="relative h-full overflow-y-auto overscroll-contain px-5 pt-4 pb-5">
+            <div className="mt-4 text-center">
+              <h1
+                className="text-[30px] font-extrabold text-white tracking-wide"
+                style={{ textShadow: "0 2px 10px rgba(0,0,0,0.35)" }}
+              >
+                面接トレーニング
+              </h1>
+              <p
+                className="mt-1 text-[14px] font-semibold text-white/95"
+                style={{ textShadow: "0 2px 10px rgba(0,0,0,0.35)" }}
+              >
+                Dialogue Trainer for Med. Interview
+              </p>
+              <p className="mt-2 text-[14px] font-extrabold text-red-500">{modeLabel}</p>
+            </div>
+
+            <div className="mt-4 rounded-[22px] border-2 border-white/55 p-4 bg-sky-100/85 shadow-[0_10px_30px_rgba(0,0,0,0.18)]">
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] font-bold text-slate-700">進行</span>
+                <span className="text-[12px] font-bold text-slate-700">
+                  {isLoading ? "-" : `${current} / ${total}`}
+                </span>
               </div>
 
-              <div className="mt-4 rounded-[22px] border-2 border-white/55 p-4 bg-sky-100/85 shadow-[0_10px_30px_rgba(0,0,0,0.18)]">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] font-bold text-slate-700">進行</span>
-                  <span className="text-[12px] font-bold text-slate-700">
-                    {isLoading ? "-" : `${current} / ${total}`}
-                  </span>
+              <div className="mt-2 h-3 rounded-full bg-slate-200 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-all"
+                  style={{ width: `${progress * 100}%` }}
+                />
+              </div>
+
+              <div className="mt-4 relative rounded-[18px] border border-white/70 bg-white/55 p-4">
+                <div className="pr-10">
+                  <p className="text-[18px] font-extrabold text-slate-800 leading-snug">
+                    {isLoading ? "読み込み中..." : currentQ?.text || "（質問がありません）"}
+                  </p>
                 </div>
 
-                <div className="mt-2 h-3 rounded-full bg-slate-200 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-emerald-500 transition-all"
-                    style={{ width: `${progress * 100}%` }}
-                  />
-                </div>
+                {isThreeMajorMain && (
+                  <button
+                    type="button"
+                    className="absolute top-3 right-3 w-8 h-8 rounded-full bg-sky-200/70 border border-white/70 flex items-center justify-center text-slate-700 font-black"
+                    title="ヒント"
+                    onClick={() => setHintOpen(true)}
+                  >
+                    ?
+                  </button>
+                )}
 
-                <div className="mt-4 relative rounded-[18px] border border-white/70 bg-white/55 p-4">
-                  {/* 質問文 */}
-                  <div className="pr-10">
-                    <p className="text-[18px] font-extrabold text-slate-800 leading-snug">
-                      {isLoading ? "読み込み中..." : currentQ?.text || "（質問がありません）"}
-                    </p>
-                  </div>
-
-                  {/* 「？」ボタン：三大質問のときだけ */}
-                  {isThreeMajorMain && (
+                {hintOpen && (
+                  <div className="absolute inset-0 z-20 flex items-center justify-center p-4">
                     <button
                       type="button"
-                      className="absolute top-3 right-3 w-8 h-8 rounded-full bg-sky-200/70 border border-white/70 flex items-center justify-center text-slate-700 font-black"
-                      title="ヒント"
-                      onClick={() => setHintOpen(true)}
-                    >
-                      ?
-                    </button>
-                  )}
+                      className="absolute inset-0 bg-black/40"
+                      onClick={() => setHintOpen(false)}
+                      aria-label="close hint overlay"
+                    />
+                    <div className="relative w-full max-w-[320px] rounded-2xl bg-white p-4 shadow-xl border border-slate-200">
+                      <div className="flex items-start justify-between">
+                        <h3 className="text-[14px] font-extrabold text-slate-800">ヒント</h3>
+                        <button
+                          type="button"
+                          className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-black"
+                          onClick={() => setHintOpen(false)}
+                          aria-label="close hint"
+                        >
+                          ×
+                        </button>
+                      </div>
 
-                  {/* ヒントカード（モーダル） */}
-                  {hintOpen && (
-                    <div className="absolute inset-0 z-20 flex items-center justify-center p-4">
-                      <button
-                        type="button"
-                        className="absolute inset-0 bg-black/40"
-                        onClick={() => setHintOpen(false)}
-                        aria-label="close hint overlay"
-                      />
-                      <div className="relative w-full max-w-[320px] rounded-2xl bg-white p-4 shadow-xl border border-slate-200">
-                        <div className="flex items-start justify-between">
-                          <h3 className="text-[14px] font-extrabold text-slate-800">ヒント</h3>
-                          <button
-                            type="button"
-                            className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-black"
-                            onClick={() => setHintOpen(false)}
-                            aria-label="close hint"
-                          >
-                            ×
-                          </button>
-                        </div>
+                      <p className="mt-2 text-[13px] leading-relaxed text-slate-700 whitespace-pre-wrap">
+                        {currentQ?.hint || "ヒントはありません"}
+                      </p>
 
-                        <p className="mt-2 text-[13px] leading-relaxed text-slate-700 whitespace-pre-wrap">
-                          {currentQ?.hint || "ヒントはありません"}
-                        </p>
-
-                        <div className="mt-4 flex justify-end">
-                          <button
-                            type="button"
-                            className="rounded-xl bg-sky-200 px-4 py-2 text-[12px] font-bold text-slate-800"
-                            onClick={() => setHintOpen(false)}
-                          >
-                            閉じる
-                          </button>
-                        </div>
+                      <div className="mt-4 flex justify-end">
+                        <button
+                          type="button"
+                          className="rounded-xl bg-sky-200 px-4 py-2 text-[12px] font-bold text-slate-800"
+                          onClick={() => setHintOpen(false)}
+                        >
+                          閉じる
+                        </button>
                       </div>
                     </div>
-                  )}
-
-                  {/* 回答欄 */}
-                  <textarea
-                    className="mt-3 w-full min-h-[220px] rounded-[16px] border border-slate-300 bg-white p-3 text-[14px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300"
-                    placeholder="ここに回答を入力してください。"
-                    value={answer}
-                    onChange={(e) => setAnswer(e.target.value)}
-                  />
-
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="text-[12px] font-bold text-slate-700">
-                      {charCount}文字
-                      {isCoreOrDeepDive && (
-                        <span className={isValid ? "text-emerald-700" : "text-red-500"}>
-                          {" "}
-                          （{minChars}文字以上が必要）
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[12px] font-bold text-slate-500">
-                      kind:{" "}
-                      <span className="text-slate-700">{String((currentQ as any)?.kind || "-")}</span>
-                    </div>
                   </div>
+                )}
 
-                  <div className="mt-3 text-[12px] leading-relaxed text-slate-700 font-semibold">
-                    <p>テキスト入力／音声入力のどちらも利用できます。</p>
-                    <p>上手く認識しない場合はテキストで入力して下さい。</p>
-                    <p>※「まる」と音声入力すると句点を付けられます。</p>
+                {/* ✅ 高さを狭めたいなら min-h を下げる（例: 180〜200） */}
+                <textarea
+                  className="mt-3 w-full min-h-[220px] rounded-[16px] border border-slate-300 bg-white p-3 text-[14px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300"
+                  placeholder="ここに回答を入力してください。"
+                  value={answer}
+                  onChange={(e) => {
+                    setAnswer(e.target.value);
+                    committedRef.current = e.target.value; // ✅ 手入力も committed に同期（音声追記が自然になる）
+                  }}
+                />
+
+                <div className="mt-2 flex items-center justify-between">
+                  <div className="text-[12px] font-bold text-slate-700">
+                    {charCount}文字
+                    {isCoreOrDeepDive && (
+                      <span className={isValid ? "text-emerald-700" : "text-red-500"}>
+                        {" "}
+                        （{minChars}文字以上が必要）
+                      </span>
+                    )}
                   </div>
-
-                  <div className="mt-4 flex items-center justify-between">
-                    <p className="text-[11px] text-slate-600 font-semibold">
-                      Android/Chrome は右の🎤で音声入力。iPhone はキーボードのマイクをご利用ください。
-                    </p>
-
-                    <button
-                      type="button"
-                      className={[
-                        "ml-3 shrink-0 w-14 h-14 rounded-full border-2 shadow flex items-center justify-center transition",
-                        listening ? "bg-red-100 border-red-200" : "bg-white/80 border-slate-200",
-                      ].join(" ")}
-                      title="音声入力"
-                      onClick={toggleSpeech}
-                    >
-                      <span className="text-[22px]">{listening ? "⏹" : "🎤"}</span>
-                    </button>
+                  <div className="text-[12px] font-bold text-slate-500">
+                    kind:{" "}
+                    <span className="text-slate-700">{String((currentQ as any)?.kind || "-")}</span>
                   </div>
                 </div>
-              </div>
 
-              {/* 次へ */}
-              <div className="mt-5 flex justify-center pb-2">
-                <button
-                  type="button"
-                  onClick={onNext}
-                  disabled={!isValid || isLoading || !currentQ || isAdvancing}
-                  className={[
-                    "w-[240px] h-[56px] rounded-full font-extrabold text-[18px] shadow-lg transition-all",
-                    isValid && !isLoading && currentQ && !isAdvancing
-                      ? "bg-sky-300 text-slate-900 hover:bg-sky-200"
-                      : "bg-slate-300 text-slate-500 cursor-not-allowed",
-                  ].join(" ")}
-                  style={{ textShadow: isValid ? "0 1px 0 rgba(255,255,255,0.35)" : "none" }}
-                >
-                  次へ
-                </button>
-              </div>
+                <div className="mt-3 text-[12px] leading-relaxed text-slate-700 font-semibold">
+                  <p>テキスト入力／音声入力のどちらも利用できます。</p>
+                  <p>上手く認識しない場合はテキストで入力して下さい。</p>
+                  <p>※「まる」と音声入力すると句点を付けられます。</p>
+                </div>
 
-              {/* ちょい余白 */}
-              <div className="h-2" />
+                <div className="mt-4 flex items-center justify-between">
+                  <p className="text-[11px] text-slate-600 font-semibold">
+                    Android/Chrome は右の🎤で音声入力。iPhone はキーボードのマイクをご利用ください。
+                  </p>
+
+                  <button
+                    type="button"
+                    className={[
+                      "ml-3 shrink-0 w-14 h-14 rounded-full border-2 shadow flex items-center justify-center transition",
+                      listening ? "bg-red-100 border-red-200" : "bg-white/80 border-slate-200",
+                    ].join(" ")}
+                    title="音声入力"
+                    onClick={toggleSpeech}
+                  >
+                    <span className="text-[22px]">{listening ? "⏹" : "🎤"}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-center pb-6">
+              <button
+                type="button"
+                onClick={onNext}
+                disabled={!isValid || isLoading || !currentQ || isAdvancing}
+                className={[
+                  "w-[240px] h-[56px] rounded-full font-extrabold text-[18px] shadow-lg transition-all",
+                  isValid && !isLoading && currentQ && !isAdvancing
+                    ? "bg-sky-300 text-slate-900 hover:bg-sky-200"
+                    : "bg-slate-300 text-slate-500 cursor-not-allowed",
+                ].join(" ")}
+                style={{ textShadow: isValid ? "0 1px 0 rgba(255,255,255,0.35)" : "none" }}
+              >
+                次へ
+              </button>
             </div>
           </div>
         </div>
