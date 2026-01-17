@@ -539,7 +539,7 @@ export default function InterviewPage() {
           <div className="absolute inset-0 bg-sky-950/35" />
 
           {/* ✅ ここがスクロール本体 */}
-          <div className="relative h-full overflow-y-auto overscroll-contain px-3 pt-4 pb-5">
+          <div className="relative h-full overflow-y-auto overscroll-contain px-3 pt-6 pb-5">
             <div className="mt-4 text-center">
               <h1
                 className="text-[30px] font-extrabold text-white tracking-wide"
