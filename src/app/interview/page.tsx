@@ -225,25 +225,33 @@ export default function InterviewPage() {
     // ✅ 端末差が激しいので false + onend自動復帰が安定しやすい
     recog.continuous = false;
 
-    recog.onresult = (event: any) => {
-      // ✅ 「確定分だけ」を毎回組み直す（追記しない＝増殖しない）
-      let finals = "";
-      for (let i = 0; i < event.results.length; i++) {
-        const r = event.results[i];
-        if (r && r.isFinal) {
-          finals += String(r[0]?.transcript ?? "");
-        }
-      }
+recog.onresult = (event: any) => {
+  // ✅ その回で確定した final だけ拾う（continuous=false前提）
+  let finalText = "";
+  for (let i = event.resultIndex; i < event.results.length; i++) {
+    const r = event.results[i];
+    if (r?.isFinal) finalText += String(r[0]?.transcript ?? "");
+  }
 
-      const fixedFinals = correctLightRealtime(finals).trim();
+  const fixed = correctLightRealtime(finalText).trim();
 
-      // 同一内容の連発を無視
-      if (fixedFinals && fixedFinals === lastFinalAllRef.current) return;
-      lastFinalAllRef.current = fixedFinals;
+  // ✅ 何も確定してない時に、空で上書きしない
+  if (!fixed) return;
 
-      const merged = (baseTextRef.current + fixedFinals).trimStart();
-      setAnswer(merged);
-    };
+  // ✅ 同じ確定文の連発を無視（増殖＆二重反映対策）
+  if (fixed === lastFinalAllRef.current) return;
+  lastFinalAllRef.current = fixed;
+
+  // ✅ 「古いbase」ではなく、いまのbaseに追記して確定させる
+  const next = (baseTextRef.current + fixed).trimStart();
+
+  // ✅ 画面に反映
+  setAnswer(next);
+
+  // ✅ ここが本丸：確定したら base を最新に更新
+  // これで無音→onend→再開しても、消えない
+  baseTextRef.current = next;
+};
 
     recog.onerror = () => {
       setListening(false);
