@@ -522,7 +522,7 @@ export default function InterviewPage() {
   return (
     <main className="relative w-full h-[100svh] overflow-hidden flex justify-center bg-slate-100">
       {/* ✅ 外枠：ここを広げたいなら w-[390px] / max-w を触る */}
-      <div className="w-[390px] max-w-[92vw] h-[100svh] flex items-start justify-center pt-2 pb-6">
+      <div className="w-[440px] max-w-[92vw] h-[100svh] flex items-start justify-center pt-2 pb-6">
         {/* ✅ 1画面に収めつつ、中だけスクロールさせるための“器” */}
         <div className="relative w-full h-[calc(100svh-16px)] rounded-[28px] overflow-hidden shadow-2xl border border-white/30">
           <div
