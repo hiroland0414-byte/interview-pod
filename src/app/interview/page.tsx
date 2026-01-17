@@ -539,7 +539,7 @@ export default function InterviewPage() {
           <div className="absolute inset-0 bg-sky-950/35" />
 
           {/* ✅ ここがスクロール本体 */}
-          <div className="relative h-full overflow-y-auto overscroll-contain px-3 pt-6 pb-5">
+          <div className="relative h-full overflow-y-auto overscroll-contain px-3 pt-4 pb-5">
             <div className="mt-4 text-center">
               <h1
                 className="text-[30px] font-extrabold text-white tracking-wide"
@@ -655,9 +655,9 @@ export default function InterviewPage() {
                 </div>
 
                 <div className="mt-3 text-[12px] leading-relaxed text-slate-700 font-semibold">
-                  <p>テキスト入力／音声入力のどちらも利用できます。</p>
-                  <p>上手く認識しない場合はテキストで入力して下さい。</p>
-                  <p>※「まる」と音声入力すると句点を付けられます。</p>
+                  <p>テキスト入力／音声入力 可能</p>
+                  <p>上手く認識しない場合はテキストで入力</p>
+                  <p>※「まる」と音声入力すると句点表示</p>
                 </div>
 
                 <div className="mt-4 flex items-center justify-between">
