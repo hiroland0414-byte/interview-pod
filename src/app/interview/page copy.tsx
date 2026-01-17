@@ -522,7 +522,7 @@ export default function InterviewPage() {
   return (
     <main className="relative w-full h-[100svh] overflow-hidden flex justify-center bg-slate-100">
       {/* ✅ 外枠：ここを広げたいなら w-[390px] / max-w を触る */}
-      <div className="w-[390px] max-w-[92vw] h-[100svh] flex items-start justify-center pt-2 pb-6">
+      <div className="w-[440px] max-w-[92vw] h-[100svh] flex items-start justify-center pt-2 pb-6">
         {/* ✅ 1画面に収めつつ、中だけスクロールさせるための“器” */}
         <div className="relative w-full h-[calc(100svh-16px)] rounded-[28px] overflow-hidden shadow-2xl border border-white/30">
           <div
@@ -539,7 +539,7 @@ export default function InterviewPage() {
           <div className="absolute inset-0 bg-sky-950/35" />
 
           {/* ✅ ここがスクロール本体 */}
-          <div className="relative h-full overflow-y-auto overscroll-contain px-5 pt-4 pb-5">
+          <div className="relative h-full overflow-y-auto overscroll-contain px-3 pt-4 pb-5">
             <div className="mt-4 text-center">
               <h1
                 className="text-[30px] font-extrabold text-white tracking-wide"
@@ -655,9 +655,9 @@ export default function InterviewPage() {
                 </div>
 
                 <div className="mt-3 text-[12px] leading-relaxed text-slate-700 font-semibold">
-                  <p>テキスト入力／音声入力のどちらも利用できます。</p>
-                  <p>上手く認識しない場合はテキストで入力して下さい。</p>
-                  <p>※「まる」と音声入力すると句点を付けられます。</p>
+                  <p>テキスト入力／音声入力 可能</p>
+                  <p>上手く認識しない場合はテキストで入力</p>
+                  <p>※「まる」と音声入力すると句点表示</p>
                 </div>
 
                 <div className="mt-4 flex items-center justify-between">

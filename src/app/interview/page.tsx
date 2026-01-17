@@ -547,12 +547,6 @@ export default function InterviewPage() {
               >
                 面接トレーニング
               </h1>
-              <p
-                className="mt-1 text-[14px] font-semibold text-white/95"
-                style={{ textShadow: "0 2px 10px rgba(0,0,0,0.35)" }}
-              >
-                Dialogue Trainer for Med. Interview
-              </p>
               <p className="mt-2 text-[14px] font-extrabold text-red-500">{modeLabel}</p>
             </div>
 
