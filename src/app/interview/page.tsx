@@ -547,7 +547,6 @@ export default function InterviewPage() {
               >
                 面接トレーニング
               </h1>
-              <p className="mt-2 text-[14px] font-extrabold text-red-500">{modeLabel}</p>
             </div>
 
             <div className="mt-4 rounded-[22px] border-2 border-white/55 p-4 bg-sky-100/85 shadow-[0_10px_30px_rgba(0,0,0,0.18)]">
