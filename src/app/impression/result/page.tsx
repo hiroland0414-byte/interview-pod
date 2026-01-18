@@ -336,9 +336,7 @@ export default function ImpressionResultPage() {
             }}
           />
           <div className="absolute inset-0 bg-sky-950/35" />
- {/* ✅ ここがスクロール本体（これを入れる） */}
-        <div className="relative h-full overflow-y-auto overscroll-contain px-5 pt-4 pb-6"></div>
-          <div className="relative px-5 pt-4 pb-5">
+           <div className="relative px-5 pt-4 pb-5">
             <div className="mt-4 text-center">
               <h1 className="text-[28px] font-extrabold text-white tracking-wide" style={{ textShadow: "0 2px 10px rgba(0,0,0,0.35)" }}>
                 印象アップモード
