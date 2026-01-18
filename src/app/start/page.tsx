@@ -141,7 +141,7 @@ export default function StartPage() {
               {/* タイトル */}
               <div className="mt-4 text-center">
                 <h1
-                  className="text-[16px] font-extrabold tracking-wide text-white"
+                  className="text-[18px] font-extrabold tracking-wide text-white"
                   style={{ textShadow: "0 2px 2px rgba(0,0,0,0.45)" }}
                 >
                   医療系面接 基礎トレーナー（β版）
@@ -150,7 +150,7 @@ export default function StartPage() {
                   className="mt-2 text-[14px] font-semibold text-white/90"
                   style={{ textShadow: "0 1px 1px rgba(0,0,0,0.35)" }}
                 >
-                  Dialogue Trainer for Med. Interview
+                  Dialogue Trainer for Medical Interview
                 </p>
               </div>
 
