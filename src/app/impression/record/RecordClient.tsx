@@ -253,12 +253,12 @@ export default function ImpressionRecordPage() {
     setPhase("countdown");
   }
 
-  function onBack() {
-    try {
-      hardResetToIdle();
-    } catch {}
-    router.push("/impression/guide");
-  }
+function onBack() {
+  try {
+    hardResetToIdle(); // 録画/タイマー/ストリーム全部停止（= マイクOFF）
+  } catch {}
+  router.push("/start"); // ✅ モード選択画面へ
+}
 
   // ✅ 要件：ページ入場でプレビュー。auto=1なら即カウント開始
   useEffect(() => {
@@ -629,32 +629,32 @@ export default function ImpressionRecordPage() {
                 </p>
               )}
 
-              {/* buttons：戻る＋スタート/終了 */}
-              <div className="mt-4 flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  onClick={onBack}
-                  className="flex-1 h-[48px] rounded-full font-extrabold text-[16px] shadow-lg transition-all bg-white/80 text-slate-900 hover:bg-white border border-white/70"
-                >
-                  戻る
-                </button>
+{/* buttons：モード選択＋次へ（スタート/終了） */}
+<div className="mt-4 flex items-center justify-between gap-2">
+  <button
+    type="button"
+    onClick={onBack}
+    className="flex-1 h-[48px] rounded-full font-extrabold text-[16px] shadow-lg transition-all bg-sky-200/90 text-slate-900 hover:bg-sky-200 border border-white/70"
+  >
+    モード選択
+  </button>
 
-                <button
-                  type="button"
-                  onClick={phase === "idle" ? onStart : onFinish}
-                  disabled={phase === "countdown" || (phase === "recording" && !canFinish)}
-                  className={[
-                    "flex-1 h-[48px] rounded-full font-extrabold text-[16px] shadow-lg transition-all",
-                    phase === "idle"
-                      ? "bg-sky-300 text-slate-900 hover:bg-sky-200"
-                      : phase === "recording" && canFinish
-                        ? "bg-red-300 text-slate-900 hover:bg-red-200"
-                        : "bg-slate-300 text-slate-500 cursor-not-allowed",
-                  ].join(" ")}
-                >
-                  {phase === "idle" ? "スタート" : "終了"}
-                </button>
-              </div>
+  <button
+    type="button"
+    onClick={phase === "idle" ? onStart : onFinish}
+    disabled={phase === "countdown" || (phase === "recording" && !canFinish)}
+    className={[
+      "flex-1 h-[48px] rounded-full font-extrabold text-[16px] shadow-lg transition-all",
+      phase === "idle"
+        ? "bg-sky-300 text-slate-900 hover:bg-sky-200"
+        : phase === "recording" && canFinish
+          ? "bg-red-300 text-slate-900 hover:bg-red-200"
+          : "bg-slate-300 text-slate-500 cursor-not-allowed",
+    ].join(" ")}
+  >
+    {phase === "idle" ? "スタート" : "次へ"}
+  </button>
+</div>
             </div>
 
             <p className="mt-3 text-center text-[11px] font-semibold text-white/90">
