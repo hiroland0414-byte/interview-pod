@@ -659,7 +659,7 @@ export default function InterviewPage() {
                     {isCoreOrDeepDive && (
                       <span className={isValid ? "text-emerald-700" : "text-red-500"}>
                         {" "}
-                        （{minChars}文字以上が必要）
+                        （{minChars}文字以上の入力で次へ）
                       </span>
                     )}
                   </div>
@@ -707,8 +707,8 @@ export default function InterviewPage() {
                   className={[
                     "flex-1 h-[56px] rounded-full font-extrabold text-[16px] shadow-lg transition-all",
                     !isLoading && currentQ && !isAdvancing
-                      ? "bg-slate-200 text-slate-800 hover:bg-slate-100"
-                      : "bg-slate-300 text-slate-500 cursor-not-allowed",
+                      ? "bg-sky-300 text-slate-800 hover:bg-slate-100"
+                      : "bg-sky-200 text-slate-500 cursor-not-allowed",
                   ].join(" ")}
                 >
                   モード選択
@@ -737,7 +737,7 @@ export default function InterviewPage() {
                   className={[
                     "flex-1 h-[56px] rounded-full font-extrabold text-[16px] shadow-lg transition-all",
                     isValid && !isLoading && currentQ && !isAdvancing
-                      ? "bg-emerald-300 text-slate-900 hover:bg-sky-200"
+                      ? "bg-sky-300 text-slate-900 hover:bg-sky-200"
                       : "bg-slate-300 text-slate-500 cursor-not-allowed",
                   ].join(" ")}
                   style={{ textShadow: isValid ? "0 1px 0 rgba(255,255,255,0.35)" : "none" }}
