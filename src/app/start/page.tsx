@@ -240,7 +240,7 @@ export default function StartPage() {
                       "backdrop-blur-md",
                       selected === "EXIT"
                         ? "border-white/70 bg-red-300/85"
-                        : "border-white/45 bg-yellow-200/30 hover:bg-yellow-200/40",
+                        : "border-white/45 bg-red-300/80 hover:bg-yellow-200/40",
                       disabledUnlessSelected("EXIT") ? "opacity-60" : "opacity-100",
                     ].join(" ")}
                   >
