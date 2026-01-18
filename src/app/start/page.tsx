@@ -219,7 +219,7 @@ export default function StartPage() {
                           "backdrop-blur-md",
                           active
                             ? "border-white/70 bg-sky-300/90"
-                            : "border-white/45 bg-sky-200/90 hover:bg-sky-200/45",
+                            : "border-white/45 bg-sky-400/40 hover:bg-sky-200/45",
                           disabled ? "opacity-60" : "opacity-100",
                         ].join(" ")}
                       >

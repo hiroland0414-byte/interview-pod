@@ -524,19 +524,18 @@ function onBack() {
             {/* title */}
             <div className="mt-4 text-center">
               <h1
-                className="text-[28px] font-extrabold text-white tracking-wide"
+                className="text-[30px] font-extrabold text-white tracking-wide"
                 style={{ textShadow: "0 2px 10px rgba(0,0,0,0.35)" }}
               >
                 印象アップモード
               </h1>
               <p
-                className="mt-1 text-[13px] font-semibold text-white/95"
+                className="mt-1 text-[16px] font-semibold text-white/95"
                 style={{ textShadow: "0 2px 10px rgba(0,0,0,0.35)" }}
               >
                 Non-verbal Feedback (voice / face)
               </p>
-              <p className="mt-2 text-[12px] font-extrabold text-red-500">全モード共通</p>
-            </div>
+              </div>
 
             {/* =========================
                recording UI（広め）
