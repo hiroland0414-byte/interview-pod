@@ -200,7 +200,7 @@ export default function StartPage() {
                 {/* 面接トレーニング */}
                 <div className="space-y-3">
                   <div className="mt-2 mb-2 text-center">
-                    <p className="text-[20px] font-extrabold text-yellow-500">
+                    <p className="text-[20px] font-extrabold text-yellow-200">
                       --- 面接トレーニング ---
                     </p>
                   </div>
@@ -239,7 +239,7 @@ export default function StartPage() {
                       "rounded-full border-2 px-6 py-2.0 text-center transition-all",
                       "backdrop-blur-md",
                       selected === "EXIT"
-                        ? "border-white/70 bg-yellow-300/85"
+                        ? "border-white/70 bg-red-300/85"
                         : "border-white/45 bg-yellow-200/30 hover:bg-yellow-200/40",
                       disabledUnlessSelected("EXIT") ? "opacity-60" : "opacity-100",
                     ].join(" ")}
