@@ -82,7 +82,7 @@ export default function ImpressionGuidePage() {
               {/* スタート（recordへ。auto=1でrecord側が即カウントへ） */}
               <button
                 type="button"
-                className="mt-4 w-full h-[48px] rounded-full font-extrabold text-[16px] shadow-lg bg-sky-300 text-slate-900 hover:bg-sky-200 transition-all"
+                className="mt-4 w-full h-[48px] rounded-full font-extrabold text-[16px] shadow-lg bg-sky-200 text-slate-900 hover:bg-sky-200 transition-all"
                 onClick={() => router.push("/impression/record?auto=1")}
               >
                 スタート
