@@ -218,7 +218,7 @@ export default function StartPage() {
                           "w-full rounded-full border-2 px-5 py-2.0 transition-all",
                           "backdrop-blur-md",
                           active
-                            ? "border-white/70 bg-sky-300/90"
+                            ? "border-white/70 bg-sky-300/60"
                             : "border-white/45 bg-sky-400/40 hover:bg-sky-200/45",
                           disabled ? "opacity-60" : "opacity-100",
                         ].join(" ")}
