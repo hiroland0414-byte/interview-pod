@@ -708,7 +708,7 @@ export default function InterviewPage() {
                     "flex-1 h-[56px] rounded-full font-extrabold text-[16px] shadow-lg transition-all",
                     !isLoading && currentQ && !isAdvancing
                       ? "bg-emeraid-200 text-slate-800 hover:bg-slate-100"
-                      : "bg-slate-300 text-slate-500 cursor-not-allowed",
+                      : "bg-emeraid-300 text-slate-500 cursor-not-allowed",
                   ].join(" ")}
                 >
                   モード選択
