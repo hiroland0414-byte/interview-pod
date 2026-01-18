@@ -705,7 +705,7 @@ export default function InterviewPage() {
                   onClick={onGoModeSelect}
                   disabled={isLoading || !currentQ || isAdvancing}
                   className={[
-                    "flex-1 h-[56px] rounded-full font-extrabold text-[16px] shadow-lg transition-all",
+                    "flex-1 h-[40px] rounded-full font-extrabold text-[16px] shadow-lg transition-all",
                     !isLoading && currentQ && !isAdvancing
                       ? "bg-sky-200 text-slate-800 hover:bg-slate-100"
                       : "bg-slate-300 text-slate-500 cursor-not-allowed",
@@ -720,7 +720,7 @@ export default function InterviewPage() {
                   onClick={onReset}
                   disabled={isLoading || !currentQ || isAdvancing}
                   className={[
-                    "flex-1 h-[56px] rounded-full font-extrabold text-[16px] shadow-lg transition-all",
+                    "flex-1 h-[40px] rounded-full font-extrabold text-[16px] shadow-lg transition-all",
                     !isLoading && currentQ && !isAdvancing
                       ? "bg-yellow-200 text-slate-800 hover:bg-yellow-100"
                       : "bg-slate-300 text-slate-500 cursor-not-allowed",
