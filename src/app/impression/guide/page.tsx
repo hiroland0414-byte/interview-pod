@@ -30,7 +30,7 @@ export default function ImpressionGuidePage() {
                 className="text-[28px] font-extrabold text-white tracking-wide"
                 style={{ textShadow: "0 2px 10px rgba(0,0,0,0.35)" }}
               >
-                印象アップモード
+                印象力アップモード
               </h1>
               <p
                 className="mt-1 text-[13px] font-semibold text-white/95"

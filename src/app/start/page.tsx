@@ -156,7 +156,7 @@ export default function StartPage() {
 
               {/* ボタン群 */}
               <div className="mt-5 w-full pb-2">
-                {/* 印象アップ（最上段） */}
+                {/* 印象力アップ（最上段） */}
                 <div className="mb-5">
                   <button
                     type="button"
@@ -172,7 +172,7 @@ export default function StartPage() {
                       selected !== "IMPRESSION" ? "impression-pulse" : "",
                     ].join(" ")}
                   >
-                    <ButtonInner icon="/icons/impression.png" label="印象アップ（非言語）" />
+                    <ButtonInner icon="/icons/impression.png" label="印象力アップ（非言語）" />
                   </button>
                 </div>
 

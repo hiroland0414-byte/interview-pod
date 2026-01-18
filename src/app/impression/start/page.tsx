@@ -32,7 +32,7 @@ export default function ImpressionStartPage() {
   return (
     <main className="min-h-[100svh] bg-[#0b1f3a] flex justify-center">
       <div className="w-full max-w-[430px] px-4 pt-6 pb-10 text-white">
-        <h1 className="text-xl font-extrabold text-center drop-shadow">印象アップモード</h1>
+        <h1 className="text-xl font-extrabold text-center drop-shadow">印象力アップモード</h1>
         <p className="text-[12px] text-center text-white/85 mt-1">Nonverbal & Delivery Booster</p>
 
         <section className="mt-6 rounded-2xl bg-white/10 border border-white/15 p-4">

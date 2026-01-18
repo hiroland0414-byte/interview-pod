@@ -67,9 +67,7 @@ function recomputeSnap(prev: ImpressionSnap): ImpressionSnap {
 
   const timeScore = clamp(((seconds - MIN_SEC) / (MAX_SEC - MIN_SEC)) * 25, 0, 25);
 
-  const faceScore = faceCheckAvailable
-    ? clamp((1 - (faceMissingRatio ?? 0)) * 45, 0, 45)
-    : 0;
+  const faceScore = faceCheckAvailable ? clamp((1 - (faceMissingRatio ?? 0)) * 45, 0, 45) : 0;
 
   const base = faceCheckAvailable
     ? faceScore + timeScore + selfEye + selfVoice
@@ -80,8 +78,7 @@ function recomputeSnap(prev: ImpressionSnap): ImpressionSnap {
 
   const score = Math.round(clamp(base, 0, 100));
 
-  const needImprove =
-    (faceCheckAvailable && (faceMissingRatio ?? 0) >= 0.25) || seconds < 40;
+  const needImprove = (faceCheckAvailable && (faceMissingRatio ?? 0) >= 0.25) || seconds < 40;
 
   const grade = needImprove ? "B" : "A";
 
@@ -89,7 +86,8 @@ function recomputeSnap(prev: ImpressionSnap): ImpressionSnap {
     ? Math.round(clamp((1 - (faceMissingRatio ?? 0)) * 100, 0, 100))
     : 60;
 
-  const vTempo = Math.round(clamp(50 + ((seconds - MIN_SEC) / 30) * 40, 50, 90));
+  const MIN_SEC2 = 30;
+  const vTempo = Math.round(clamp(50 + ((seconds - MIN_SEC2) / 30) * 40, 50, 90));
 
   const vEye = mapSelfToValue(prev.selfCheck?.eye);
   const vVoice = mapSelfToValue(prev.selfCheck?.voice);
@@ -179,7 +177,8 @@ function buildDeltaComment(curr: ImpressionSnap, prev: ImpressionSnap | null): s
 
 /** レーダー読み取りガイド（1行） */
 function buildRadarGuide(labels: string[], values: number[]): string {
-  if (labels.length !== 5 || values.length !== 5) return "形（バランス）を見て、弱い1点だけを次回のテーマにしましょう。";
+  if (labels.length !== 5 || values.length !== 5)
+    return "形（バランス）を見て、弱い1点だけを次回のテーマにしましょう。";
 
   const items = labels.map((l, i) => ({ label: l, value: values[i] ?? 0 }));
   const sorted = [...items].sort((a, b) => b.value - a.value);
@@ -187,7 +186,6 @@ function buildRadarGuide(labels: string[], values: number[]): string {
   const top2 = sorted[1];
   const low1 = sorted[sorted.length - 1];
 
-  // 露骨な断定を避けつつ、行動に繋げる言い方
   return `今回は「${top1.label}」「${top2.label}」が比較的安定。次は「${low1.label}」を意識すると全体のバランスが整います。`;
 }
 
@@ -235,14 +233,33 @@ function RadarChart({ labels, values }: { labels: string[]; values: number[] }) 
     <div className="flex items-center justify-center">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-label="レーダーチャート">
         {gridPolys.map((pts, idx) => (
-          <polygon key={idx} points={pts} fill="none" stroke="rgba(15,23,42,0.25)" strokeWidth="1" />
+          <polygon
+            key={idx}
+            points={pts}
+            fill="none"
+            stroke="rgba(15,23,42,0.25)"
+            strokeWidth="1"
+          />
         ))}
 
         {axes.map((a, idx) => (
-          <line key={idx} x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2} stroke="rgba(15,23,42,0.25)" strokeWidth="1" />
+          <line
+            key={idx}
+            x1={a.x1}
+            y1={a.y1}
+            x2={a.x2}
+            y2={a.y2}
+            stroke="rgba(15,23,42,0.25)"
+            strokeWidth="1"
+          />
         ))}
 
-        <polygon points={valuePoly} fill="rgba(16,185,129,0.25)" stroke="rgba(16,185,129,0.75)" strokeWidth="2" />
+        <polygon
+          points={valuePoly}
+          fill="rgba(16,185,129,0.25)"
+          stroke="rgba(16,185,129,0.75)"
+          strokeWidth="2"
+        />
 
         {points.map((p, i) => {
           const pt = polarToXY(p.angle, r * clamp((values[i] ?? 0) / 100, 0, 1));
@@ -294,7 +311,8 @@ export default function ImpressionResultPage() {
     }
   }, []);
 
-  const radarLabels = snap?.radar?.items ?? ["姿勢・安定感", "表情", "目線", "声の明瞭さ", "話すテンポ"];
+  const radarLabels =
+    snap?.radar?.items ?? ["姿勢・安定感", "表情", "目線", "声の明瞭さ", "話すテンポ"];
   const radarValues = snap?.radar?.values ?? [60, 55, 60, 60, 60];
 
   const deltaComment = useMemo(() => {
@@ -316,14 +334,14 @@ export default function ImpressionResultPage() {
     const updated = recomputeSnap(next);
     setSnap(updated);
     sessionStorage.setItem("kcareer.impression.snap", JSON.stringify(updated));
-    // prevも更新して、次回比較が「最新状態」になるようにしておく
     sessionStorage.setItem("kcareer.impression.prev", JSON.stringify(updated));
   }
 
   return (
     <main className="relative w-full h-[100svh] overflow-hidden flex justify-center bg-slate-100">
       <div className="w-[390px] max-w-[92vw] h-[100svh] flex items-start justify-center pt-2 pb-6">
-        <div className="relative w-full rounded-[28px] overflow-hidden shadow-2xl border border-white/30">
+        {/* ✅ 1画面を固定し、中だけスクロールできる“器”を作る */}
+        <div className="relative w-full h-[calc(100svh-16px)] rounded-[28px] overflow-hidden shadow-2xl border border-white/30">
           <div
             className="absolute inset-0"
             style={{
@@ -336,15 +354,22 @@ export default function ImpressionResultPage() {
             }}
           />
           <div className="absolute inset-0 bg-sky-950/35" />
-           <div className="relative px-5 pt-4 pb-5">
+
+          {/* ✅ ここがスクロール本体（追加） */}
+          <div className="relative h-full overflow-y-auto overscroll-contain px-5 pt-4 pb-5">
             <div className="mt-4 text-center">
-              <h1 className="text-[28px] font-extrabold text-white tracking-wide" style={{ textShadow: "0 2px 10px rgba(0,0,0,0.35)" }}>
-                印象アップモード
+              <h1
+                className="text-[26px] font-extrabold text-white tracking-wide"
+                style={{ textShadow: "0 2px 10px rgba(0,0,0,0.35)" }}
+              >
+                印象力アップ トレーナー
               </h1>
-              <p className="mt-1 text-[13px] font-semibold text-white/95" style={{ textShadow: "0 2px 10px rgba(0,0,0,0.35)" }}>
+              <p
+                className="mt-1 text-[13px] font-semibold text-white/95"
+                style={{ textShadow: "0 2px 10px rgba(0,0,0,0.35)" }}
+              >
                 Non-verbal Feedback (voice / face)
               </p>
-              <p className="mt-2 text-[12px] font-extrabold text-red-500">全モード共通</p>
             </div>
 
             <div className="mt-4 rounded-[22px] border-2 border-white/55 p-4 bg-sky-100/85 shadow-[0_10px_30px_rgba(0,0,0,0.18)]">
@@ -388,9 +413,7 @@ export default function ImpressionResultPage() {
                     <div className="rounded-2xl bg-white/80 border border-white/70 p-3 shadow-sm">
                       <p className="text-[12px] font-extrabold text-slate-800 mb-2">レーダーチャート（5項目）</p>
                       <RadarChart labels={[...radarLabels]} values={[...radarValues]} />
-                      <p className="mt-2 text-[11px] font-semibold text-slate-700">
-                        {radarGuide}
-                      </p>
+                      <p className="mt-2 text-[11px] font-semibold text-slate-700">{radarGuide}</p>
                       <p className="mt-1 text-[10px] font-semibold text-slate-600">
                         ※「表情」は現時点では暫定評価（目線・声の自己チェックを反映）
                       </p>
@@ -415,8 +438,8 @@ export default function ImpressionResultPage() {
                                   ? v === "good"
                                     ? "bg-emerald-200 text-slate-900 border-emerald-300"
                                     : v === "mid"
-                                      ? "bg-sky-200 text-slate-900 border-sky-300"
-                                      : "bg-rose-200 text-slate-900 border-rose-300"
+                                    ? "bg-sky-200 text-slate-900 border-sky-300"
+                                    : "bg-rose-200 text-slate-900 border-rose-300"
                                   : "bg-white/70 text-slate-800 border-white/70 hover:bg-white",
                               ].join(" ")}
                               onClick={() => updateSelf("eye", v)}
@@ -440,8 +463,8 @@ export default function ImpressionResultPage() {
                                   ? v === "good"
                                     ? "bg-emerald-200 text-slate-900 border-emerald-300"
                                     : v === "mid"
-                                      ? "bg-sky-200 text-slate-900 border-sky-300"
-                                      : "bg-rose-200 text-slate-900 border-rose-300"
+                                    ? "bg-sky-200 text-slate-900 border-sky-300"
+                                    : "bg-rose-200 text-slate-900 border-rose-300"
                                   : "bg-white/70 text-slate-800 border-white/70 hover:bg-white",
                               ].join(" ")}
                               onClick={() => updateSelf("voice", v)}
@@ -461,7 +484,9 @@ export default function ImpressionResultPage() {
                   {/* feedback text */}
                   <section className="mt-3 rounded-2xl bg-white shadow-md px-3 py-3">
                     <h2 className="text-sm font-extrabold text-slate-800 mb-2">フィードバック（責任者視点）</h2>
-                    <p className="text-[11px] whitespace-pre-wrap leading-relaxed text-slate-800">{snap.feedback}</p>
+                    <p className="text-[11px] whitespace-pre-wrap leading-relaxed text-slate-800">
+                      {snap.feedback}
+                    </p>
                   </section>
 
                   {/* ③ 教員・運用向け注記（小さく） */}
