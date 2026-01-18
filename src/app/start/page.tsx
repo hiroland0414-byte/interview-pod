@@ -144,10 +144,10 @@ export default function StartPage() {
                   className="text-[16px] font-extrabold tracking-wide text-white"
                   style={{ textShadow: "0 2px 2px rgba(0,0,0,0.45)" }}
                 >
-                  医療系面接 基礎トレーナー（β板）
+                  医療系面接 基礎トレーナー（β版）
                 </h1>
                 <p
-                  className="mt-2 text-[12px] font-semibold text-white/90"
+                  className="mt-2 text-[14px] font-semibold text-white/90"
                   style={{ textShadow: "0 1px 1px rgba(0,0,0,0.35)" }}
                 >
                   Dialogue Trainer for Med. Interview
@@ -200,7 +200,7 @@ export default function StartPage() {
                 {/* 面接トレーニング */}
                 <div className="space-y-3">
                   <div className="mt-2 mb-2 text-center">
-                    <p className="text-[18px] font-extrabold text-blue-800">
+                    <p className="text-[20px] font-extrabold text-yellow-500">
                       --- 面接トレーニング ---
                     </p>
                   </div>
@@ -219,7 +219,7 @@ export default function StartPage() {
                           "backdrop-blur-md",
                           active
                             ? "border-white/70 bg-sky-300/90"
-                            : "border-white/45 bg-sky-200/35 hover:bg-sky-200/45",
+                            : "border-white/45 bg-sky-100/45 hover:bg-sky-200/45",
                           disabled ? "opacity-60" : "opacity-100",
                         ].join(" ")}
                       >
