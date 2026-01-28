@@ -62,7 +62,7 @@ export function buildFeedback(
     analysis?.coreSatisfied ??
     answers.filter((a, i) => {
       const q = questions[i];
-      return q?.core ? (a || "").length >= 180 : false;
+      return q?.core ? (a || "").length >= 200 : false;
     }).length;
   const riskFlags: string[] = analysis?.riskFlags ?? [];
   const keywordHits: string[] = analysis?.keywordHits ?? [];
@@ -76,7 +76,7 @@ export function buildFeedback(
     `${personaName}として拝見すると、全体としては${label}の面接で求められる基本的なポイントはしっかり意識できています。`,
     `特に、回答のボリュームは平均で約${avgChars}文字ほどあり、考えを言語化しようとする姿勢がうかがえます。`,
     coreOkCount > 0
-      ? `コアとなる三大質問（志望動機・自己PR・学生時代に力を入れたこと）のうち、${coreOkCount}問では180文字以上の深さが出ており、エピソードの背景や気持ちまで伝えようとしている点は、とても良い傾向です。`
+      ? `コアとなる三大質問（志望動機・自己PR・学生時代に力を入れたこと）のうち、${coreOkCount}問では200文字以上の深さが出ており、エピソードの背景や気持ちまで伝えようとしている点は、とても良い傾向です。`
       : `まだ文字数としてはコンパクトな回答が多いものの、「なぜそう思ったのか」「どのように行動したのか」を書こうとしている片鱗は見られます。`,
     keywordHits.length
       ? `また、回答の中には「${keywordHits
@@ -93,7 +93,7 @@ export function buildFeedback(
 
   if (avgChars < 180) {
     improveParts.push(
-      `一方で、回答の平均文字数がやや少なく、面接官側から見ると「もう一歩踏み込んで聞いてみたい」と感じる場面が多くなりそうです。特にコアの三大質問では、最低でも180〜250文字程度は使って、「きっかけ → 具体的なエピソード → そこから学んだこと・今後どう活かすか」という流れを意識できると、説得力が一気に増します。`
+      `一方で、回答の平均文字数がやや少なく、面接官側から見ると「もう一歩踏み込んで聞いてみたい」と感じる場面が多くなりそうです。特にコアの三大質問では、最低でも200〜250文字程度は使って、「きっかけ → 具体的なエピソード → そこから学んだこと・今後どう活かすか」という流れを意識できると、説得力が一気に増します。`
     );
   } else {
     improveParts.push(

@@ -29,10 +29,10 @@ export default function ExitPage() {
               ご利用ありがとうございました
             </h1>
 
-            <p className="mt-3 text-[13px] font-semibold text-white/90 leading-relaxed">
-              この画面を閉じてください。
+            <p className="mt-3 text-[13px] font-semibold text-yellow-400 leading-relaxed">
+              β版アンケートのご協力をお願いします
               <br />
-              （ブラウザの「×」で終了できます）
+              https://forms.gle/U3UJHGgqEyhJ2zwZ7
             </p>
 
             <div className="mt-5">
@@ -45,7 +45,10 @@ export default function ExitPage() {
               </button>
             </div>
 
-            <p className="mt-3 text-[10px] font-semibold text-white/80">
+            <p className="mt-3 text-[12px] font-semibold text-white/80">
+             <br />
+              （ブラウザの「×」で終了できます）
+              <br />
               ※データはリセット済みです
             </p>
           </div>

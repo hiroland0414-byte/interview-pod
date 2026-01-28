@@ -13,7 +13,7 @@ export type QuestionCategory =
 export type QuestionItem = {
   id: string;
   text: string;
-  core?: boolean;          // コア質問（180字以上を要求するなど）
+  core?: boolean;          // コア質問（200字以上を要求するなど）
   category?: QuestionCategory;
 };
 
@@ -26,7 +26,7 @@ export type AnswerStats = {
 };
 
 export type AnswerFlags = {
-  tooShort: boolean;          // 短すぎる（coreなら180未満など）
+  tooShort: boolean;          // 短すぎる（coreなら200未満など）
   veryLong: boolean;          // 長すぎる（600文字超など任意）
   noSentenceBreak: boolean;   // 80文字以上あるのに句点が少ない
   noPoliteness: boolean;      // 敬語終止がほぼない
@@ -229,7 +229,7 @@ export function analyzeSingleAnswer(
     sentences.length > 0 ? chars / sentences.length : chars;
 
   // 長さの閾値（モード別に微調整したければここで分岐可能）
-  const minCore = 180;
+  const minCore = 200;
   const minNormal = 120;
   const maxLen = 600;
 

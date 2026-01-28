@@ -82,7 +82,7 @@ export function expandCoreQuestions(csvText: string): QuestionItem[] {
   const rows = parseCoreRows(csvText);
   const result: QuestionItem[] = [];
 
-  const CORE_MAIN_MIN = 180;
+  const CORE_MAIN_MIN = 200;
   const CORE_DEPTH_MIN = 120;
 
   for (const row of rows) {

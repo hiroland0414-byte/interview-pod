@@ -187,7 +187,7 @@ export function analyzeAnswers(
   const risks: string[] = [];
 
   // ① 文字量
-  if (avgChars >= 180) {
+  if (avgChars >= 200) {
     strengths.push("コア質問に対して、十分な文字量で丁寧に回答できています。");
   } else if (avgChars >= 120) {
     strengths.push("コア質問にはおおむね必要な情報量を盛り込めています。");
