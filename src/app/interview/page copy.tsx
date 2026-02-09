@@ -23,19 +23,10 @@ const MODE_LABEL: Record<ModeTag, string> = {
 };
 
 function inferQuestionTypeFromSection(section?: string): QuestionType | null {
-  const raw = (section || "").trim();
-  const s = raw.toLowerCase();
-
-  // 英語タグ
+  const s = (section || "").toLowerCase();
   if (s.includes("motivation")) return "motivation";
   if (s.includes("self") || s.includes("pr")) return "self_pr";
   if (s.includes("gaku") || s.includes("challenge")) return "gakuchika";
-
-  // 日本語タグ（CSVが日本語ならここで拾う）
-  if (raw.includes("志望動機")) return "motivation";
-  if (raw.includes("自己pr") || raw.includes("自己PR") || raw.includes("自己ｐｒ")) return "self_pr";
-  if (raw.includes("ガクチカ") || raw.includes("学生時代") || raw.includes("学チカ")) return "gakuchika";
-
   return null;
 }
 

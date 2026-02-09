@@ -83,8 +83,8 @@ function inferMissingSignals(type: QuestionType, answer: string): MissingSignal[
   const miss: MissingSignal[] = [];
 
   // 結論っぽい立ち上がり（自己PRは特に重要）
-const hasConclusion =
-  /結論|志望(理由|動機)は|私の強みは|強みです|強みだと考えます|学生時代(に)?力を入れた(こと)?は|取り組んだ(こと)?は|私が大切にしているのは/.test(t);
+  const hasConclusion =
+    /結論|志望(理由|動機)は|私の強みは|学生時代(に)?力を入れた(こと)?は|取り組んだ(こと)?は|私が大切にしているのは/.test(t);
 
   if (!hasConclusion) {
     // 自己PRなら headline_missing が刺さる
