@@ -28,10 +28,9 @@ export function middleware(req: NextRequest) {
   const ok = token ? verifyHubToken(token, secret, appId).ok : false;
 
   if (!ok) {
-    const to = new URL(lpUrl);
-    to.searchParams.set("from", appId);
-    // 301/308にしたいなら 308 推奨（POSTが壊れにくい）
-    return NextResponse.redirect(to, 307);
+const to = new URL(lpUrl);
+to.searchParams.set("from", appId); // appId=interview-pod
+return NextResponse.redirect(to, 307);
   }
 
   return NextResponse.next();
