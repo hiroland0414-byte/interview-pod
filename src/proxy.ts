@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { verifyHubToken } from "@/lib/hubLink";
 
 const APP_COOKIE = "kc_app_auth";
-const MAX_AGE_DAYS = 30; // Cookie最大30日（あなたの運用方針に合わせやすい）
+const MAX_AGE_DAYS = 30; // Cookie最大30日（運用に合わせて変更OK）
 const MAX_AGE = 60 * 60 * 24 * MAX_AGE_DAYS;
 
 function isPublicAssetPath(pathname: string) {
@@ -25,17 +25,31 @@ export function proxy(req: NextRequest) {
   const appId = process.env.APP_ID ?? "";
 
   if (!lpUrl || !secret || !appId) {
-    return new NextResponse("Missing env (LP_URL / HUB_LINK_SECRET / APP_ID).", { status: 500 });
+    return new NextResponse("Missing env (LP_URL / HUB_LINK_SECRET / APP_ID).", {
+      status: 500,
+    });
   }
 
   // ✅ すでに入場済みなら通す（強制ログアウトなし）
   if (req.cookies.get(APP_COOKIE)?.value === "1") return NextResponse.next();
 
-  // ✅ LPから来た “通行証” を検証
+  // ✅ LPから来た “通行証(kch)” を検証（ログ付き）
   const token = req.nextUrl.searchParams.get("kch") ?? "";
-  const ok = token ? verifyHubToken(token, secret, appId).ok : false;
 
-  if (!ok) {
+  const verifyResult = token
+    ? verifyHubToken(token, secret, appId)
+    : ({ ok: false, reason: "no-token" } as const);
+
+  console.log("[kch-debug]", {
+    pathname,
+    hasToken: !!token,
+    ok: verifyResult.ok,
+    reason: verifyResult.reason ?? "(none)",
+    appId,
+    secretLength: secret.length,
+  });
+
+  if (!verifyResult.ok) {
     const to = new URL(lpUrl);
     to.searchParams.set("from", appId);
     return NextResponse.redirect(to, 307);
@@ -50,6 +64,7 @@ export function proxy(req: NextRequest) {
     path: "/",
     maxAge: MAX_AGE,
   });
+
   return res;
 }
 
