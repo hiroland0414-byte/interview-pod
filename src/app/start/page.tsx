@@ -20,7 +20,9 @@ const ICON_BOX = 54; // 48〜64の間で調整が気持ちいい
 
 export default function StartPage() {
   const router = useRouter();
-  const [selected, setSelected] = useState<ModeTag | "IMPRESSION" | "EXIT" | null>(null);
+  const [selected, setSelected] = useState<ModeTag | "IMPRESSION" | "HUB" | null>(
+    null
+  );
   const [isNavigating, setIsNavigating] = useState(false);
 
   // ★追加：初回判定が終わるまで start を描画しない
@@ -60,23 +62,28 @@ export default function StartPage() {
     window.setTimeout(() => router.push("/impression"), 200);
   };
 
-  const exitApp = () => {
+  // 変更点：終了 → アプリ選択（kc-lp）へ
+  const goHub = () => {
     if (isNavigating) return;
-    setSelected("EXIT");
+    setSelected("HUB");
     setIsNavigating(true);
 
     try {
       sessionStorage.clear();
     } catch {}
 
+    // Hub URL（ENV優先、なければ固定URL）
+    const hubUrl =
+      process.env.NEXT_PUBLIC_HUB_URL ?? "https://kc-lp.vercel.app";
+
     window.setTimeout(() => {
-      router.push("/exit");
-      setIsNavigating(false);
-      setSelected(null);
+      // 外部URLへ確実に遷移（Next routerでもOKだが確実性重視）
+      window.location.href = hubUrl;
     }, 200);
   };
 
-  const disabledUnlessSelected = (key: string) => isNavigating && selected !== key;
+  const disabledUnlessSelected = (key: string) =>
+    isNavigating && selected !== key;
 
   // ボタン内レイアウト（アイコン大きめ＋左寄せ）
   const ButtonInner = ({ icon, label }: { icon: string; label: string }) => {
@@ -168,11 +175,16 @@ export default function StartPage() {
                       selected === "IMPRESSION"
                         ? "border-white/70 bg-lime-300/90"
                         : "border-white/45 bg-lime-200/40 hover:bg-lime-200/50",
-                      disabledUnlessSelected("IMPRESSION") ? "opacity-60" : "opacity-100",
+                      disabledUnlessSelected("IMPRESSION")
+                        ? "opacity-60"
+                        : "opacity-100",
                       selected !== "IMPRESSION" ? "impression-pulse" : "",
                     ].join(" ")}
                   >
-                    <ButtonInner icon="/icons/impression.png" label="印象力アップ（非言語）" />
+                    <ButtonInner
+                      icon="/icons/impression.png"
+                      label="印象力アップ（非言語）"
+                    />
                   </button>
                 </div>
 
@@ -181,7 +193,7 @@ export default function StartPage() {
                   <p className="text-[14px] font-extrabold text-emerald-200">
                     面接トレーニングに入る前におすすめ
                   </p>
-                 
+
                   {/* =====================================================
                       B案：小さな入口（思想マニュアル）
                      ===================================================== */}
@@ -229,26 +241,26 @@ export default function StartPage() {
                   })}
                 </div>
 
-                {/* 終了 */}
+                {/* 変更点：終了 → アプリ選択へ（位置・見た目は維持） */}
                 <div className="mt-4 flex justify-end">
                   <button
                     type="button"
-                    onClick={exitApp}
-                    disabled={disabledUnlessSelected("EXIT")}
+                    onClick={goHub}
+                    disabled={disabledUnlessSelected("HUB")}
                     className={[
                       "rounded-full border-2 px-6 py-2.0 text-center transition-all",
                       "backdrop-blur-md",
-                      selected === "EXIT"
+                      selected === "HUB"
                         ? "border-white/70 bg-red-300/85"
                         : "border-white/45 bg-red-300/80 hover:bg-yellow-200/40",
-                      disabledUnlessSelected("EXIT") ? "opacity-60" : "opacity-100",
+                      disabledUnlessSelected("HUB") ? "opacity-60" : "opacity-100",
                     ].join(" ")}
                   >
                     <span
                       className="text-[14px] font-extrabold text-white"
                       style={{ textShadow: "0 2px 2px rgba(0,0,0,0.45)" }}
                     >
-                      終了
+                      アプリ選択へ
                     </span>
                   </button>
                 </div>
