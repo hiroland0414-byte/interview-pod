@@ -1,4 +1,6 @@
 // interview-pod/src/proxy.ts
+export const runtime = "nodejs";
+
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { verifyHubToken } from "@/lib/hubLink";
