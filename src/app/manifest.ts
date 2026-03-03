@@ -4,7 +4,7 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "面接トレーニング",
-    short_name: "面接トレ",
+    short_name: "メントレ",
     start_url: "/",
     display: "standalone",
     background_color: "#0f172a",
