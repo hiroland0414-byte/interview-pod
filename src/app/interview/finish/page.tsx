@@ -201,7 +201,7 @@ export default function FinishPage() {
                       {showWarn && q && (
                         <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-2">
                           <p className="text-[10px] font-bold text-amber-800">
-                            ※フィードバック品質チェック：要改善
+                            ※フィードバック品質チェック
                           </p>
                           <ul className="mt-1 list-disc pl-4 text-[10px] text-amber-800 space-y-0.5">
                             {q.issues.map((s: string, i: number) => (

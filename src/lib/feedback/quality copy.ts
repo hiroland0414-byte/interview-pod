@@ -15,6 +15,7 @@ export function checkFeedbackQuality(text: string): FeedbackQuality {
   const len = countJPChars(t);
 
   const issues: string[] = [];
+  if (len < 500 || len > 750) issues.push(`文字数が想定外です（現在：約${len}字、目安：600±150）`);
   if (!RE_EVIDENCE.test(t)) issues.push("回答内容を根拠として言及している痕跡が弱いです");
   if (!RE_STRICT.test(t)) issues.push("厳しめの指摘（不足・懸念）が明確ではありません");
   if (!RE_NEXT.test(t)) issues.push("次の一手（具体改善）が読み取れません");

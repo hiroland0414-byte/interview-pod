@@ -220,7 +220,7 @@ export function InterviewResultPdfDoc(props: {
                   {showWarn && q && (
                     <View style={styles.warnBox} wrap>
                       <Text style={styles.warnText} wrap>
-                        ※フィードバック品質チェック：要改善
+                        ※フィードバック品質チェック
                       </Text>
                       <Text style={styles.body} wrap>
                         {q.issues.map((s) => `・${s}`).join("\n")}
