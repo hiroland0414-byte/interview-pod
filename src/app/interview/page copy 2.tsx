@@ -539,6 +539,46 @@ export default function InterviewPage() {
           }
         }
 
+// ===== ★ LP連携ここから =====
+try {
+  const rawAnswers = sessionStorage.getItem("kcareer.session.answers");
+  const qa = rawAnswers ? JSON.parse(rawAnswers) : [];
+
+  // ★ 正しいフィールド
+  const transcript = qa.map((q: any) => q.answerText || "").join(" ");
+
+  const score = {
+    clarity: transcript.length > 50 ? 4 : 2,
+    depth: transcript.length > 120 ? 4 : 2,
+    action: transcript.includes("行動") ? 4 : 2,
+  };
+
+  const data = {
+    date: new Date().toISOString(),
+    type: "interview",
+    answers: [transcript],
+    action: "",
+    reflection: {},
+    score,
+  };
+
+  const existing = JSON.parse(
+    localStorage.getItem("kcareer_portfolio") || "[]"
+  );
+
+  existing.push(data);
+
+  localStorage.setItem(
+    "kcareer_portfolio",
+    JSON.stringify(existing)
+  );
+
+  console.log("保存成功:", data); // ★デバッグ用
+} catch (e) {
+  console.error("LP保存エラー", e);
+}
+// ===== ★ ここまで =====
+
         router.push("/interview/finish");
         return;
       }
