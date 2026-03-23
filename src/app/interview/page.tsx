@@ -539,15 +539,14 @@ export default function InterviewPage() {
           }
         }
 
-        // ===== ★ LP連携ここから =====
+// ===== ★ LP連携ここから =====
 try {
   const rawAnswers = sessionStorage.getItem("kcareer.session.answers");
   const qa = rawAnswers ? JSON.parse(rawAnswers) : [];
 
-  // 面接の発話まとめ（簡易）
-  const transcript = qa.map((q: any) => q.answer || "").join(" ");
+  // ★ 正しいフィールド
+  const transcript = qa.map((q: any) => q.answerText || "").join(" ");
 
-  // ★ 仮スコア（簡易版）
   const score = {
     clarity: transcript.length > 50 ? 4 : 2,
     depth: transcript.length > 120 ? 4 : 2,
@@ -573,6 +572,8 @@ try {
     "kcareer_portfolio",
     JSON.stringify(existing)
   );
+
+  console.log("保存成功:", data); // ★デバッグ用
 } catch (e) {
   console.error("LP保存エラー", e);
 }
