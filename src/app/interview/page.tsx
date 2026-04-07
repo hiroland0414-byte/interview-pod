@@ -491,7 +491,7 @@ export default function InterviewPage() {
             type: qType,
             tone,
             mode,
-            maxDeepDives: 3,
+            maxDeepDives: 2,
           });
 
           nextQueue = nextQueue.map((qq: any) => {

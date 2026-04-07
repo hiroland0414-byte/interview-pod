@@ -16,12 +16,7 @@ import {
 import type { InterviewQuestion } from "./buildQuestionQueue";
 
 // もし buildQuestionQueue 側で kind を別名にしている場合でも壊れないように、ここで共通化
-type InterviewQuestionKind =
-  | "core"
-  | "coreDepth"
-  | "additional"
-  | "additionalDepth"
-  | "deepDive";
+type InterviewQuestionKind = "core" | "coreDepth" | "additional" | "additionalDepth" | "deepDive";
 
 /** kind の表記ゆれを正規化 */
 function normalizeKind(k: any): InterviewQuestionKind {
@@ -37,12 +32,28 @@ function asText(v: unknown) {
   return (v == null ? "" : String(v)).trim();
 }
 
-/** テキストの「ゆるい同一判定」用に正規化（全角空白や記号をならす） */
-function normalizeTextForDup(s: string) {
-  return (s || "")
-    .replace(/\s+/g, "")
-    .replace(/[！!？?。、・「」『』（）()\[\]【】]/g, "")
-    .toLowerCase();
+/**
+ * small normalization（判定専用）
+ * - “やりすぎない”が方針
+ * - 誤字「コミュケーション」→「コミュニケーション」だけ救済
+ */
+function normalizeForMatch(raw: string) {
+  let s = (raw || "").trim();
+  try {
+    s = s.normalize("NFKC");
+  } catch {
+    // ignore
+  }
+  s = s.replace(/\s+/g, " ");
+  s = s.replace(/[！!？?。、・「」『』（）()\[\]【】]/g, "");
+  s = s.replace(/コミュケーション/g, "コミュニケーション");
+  return s;
+}
+
+/** テキストの「ゆるい同一判定」用に正規化（空白や記号をならす） */
+function normalizeTextForDup(raw: string) {
+  const s = normalizeForMatch(raw);
+  return s.replace(/\s+/g, "").toLowerCase();
 }
 
 /** 既存キュー内に同じ/類似の質問があるか */
@@ -77,19 +88,21 @@ function collectCoreDepthInsurance(queue: InterviewQuestion[], coreMainId: strin
  * missingSignals を “壊れない軽量推定” で生成（MissingSignal 準拠）
  * - 厳密な評価は evaluateThreeMajor でやる
  * - ここは「深掘り質問の方向性」を決めるだけ
+ *
+ * ★今回：small normalization を入れて、誤字や表記ゆれで判定が落ちないようにする
  */
-function inferMissingSignals(type: QuestionType, answer: string): MissingSignal[] {
-  const t = answer || "";
+function inferMissingSignals(type: QuestionType, answerRaw: string): MissingSignal[] {
+  const t = normalizeForMatch(answerRaw);
   const miss: MissingSignal[] = [];
 
   // 結論っぽい立ち上がり（自己PRは特に重要）
   const hasConclusion =
-    /結論|志望(理由|動機)は|私の強みは|学生時代(に)?力を入れた(こと)?は|取り組んだ(こと)?は|私が大切にしているのは/.test(t);
+    /結論|志望(理由|動機)は|私の強みは|学生時代(に)?力を入れた(こと)?は|取り組んだ(こと)?は|私が大切にしているのは/.test(
+      t
+    );
 
   if (!hasConclusion) {
-    // 自己PRなら headline_missing が刺さる
     if (type === "self_pr") miss.push("headline_missing");
-    // 他は「行動/挑戦の明示」不足として扱う
     else miss.push("action_weak");
   }
 
@@ -113,7 +126,7 @@ function inferMissingSignals(type: QuestionType, answer: string): MissingSignal[
   const hasTransfer = /(活か|貢献|入職後|現場|仕事|御院|貴院|御施設|貴施設)/.test(t);
   if (!hasTransfer) miss.push("no_transfer");
 
-  // 抽象語が多い
+  // 抽象語が多い（※コミュニケーション力は抽象語扱いになりやすいので、場面・数字が無い時に刺す）
   const abstractHits =
     (t.match(/コミュニケーション(力)?|協調性|主体性|努力|頑張|成長|貢献|責任感|真面目/g) || []).length;
   if (abstractHits >= 2 && !(hasNumbers || hasTime || hasScene)) miss.push("too_vague");
@@ -121,7 +134,9 @@ function inferMissingSignals(type: QuestionType, answer: string): MissingSignal[
   // 志望動機： “ここ” が弱い
   if (type === "motivation") {
     const hasPlace =
-      /(貴院|御院|貴施設|御施設|理念|方針|地域|救急|がん|健診|教育|研修)/.test(t);
+      /(貴院|御院|貴施設|御施設|理念|方針|地域|救急|がん|健診|教育|研修|設備|チーム医療|多職種連携)/.test(
+        t
+      );
     const hasJob =
       /(診療放射線技師|放射線|画像|CT|MRI|検査|患者|チーム医療|安全管理)/.test(t);
 
@@ -131,7 +146,7 @@ function inferMissingSignals(type: QuestionType, answer: string): MissingSignal[
     if (!hasFuture) miss.push("future_weak");
   }
 
-  // 最大3に寄せたいので、優先度順に圧縮（※ generate側も最大3にするが、ここで整えると安定）
+  // 最大3に寄せたいので、優先度順に圧縮
   const priority: MissingSignal[] = [
     "headline_missing",
     "why_here_weak",
@@ -148,7 +163,6 @@ function inferMissingSignals(type: QuestionType, answer: string): MissingSignal[
   const uniqMiss = Array.from(new Set(miss));
   const sorted = priority.filter((p) => uniqMiss.includes(p));
 
-  // 何も無い時は、質問タイプ別の既定に任せる（空配列でOK）
   return sorted;
 }
 
@@ -169,7 +183,11 @@ function toDeepDiveQuestion(params: {
     parentId: parent.id,
     section: parent.section,
     depthLevel: (parent.depthLevel ?? 0) + 1,
+
+    // 深掘りのminCharsは“親に引っ張られない”のが基本だが、
+    // 既存仕様維持：親に入っている場合はそれを使う（無ければ120）
     minChars: parent.minChars ?? 120,
+
     mode,
   };
 }
@@ -181,7 +199,7 @@ export async function insertDeepDives(params: {
   type: QuestionType;
   tone: "strict" | "gentle";
   mode: ModeTag;
-  maxDeepDives?: number; // default 3
+  maxDeepDives?: number; // default 3（generate側は 直撃2＋ルール1 固定で最大3）
 }): Promise<InterviewQuestion[]> {
   const { queue, atIndex, answer, type, tone, mode, maxDeepDives = 3 } = params;
 
@@ -202,15 +220,15 @@ export async function insertDeepDives(params: {
   const insuranceDepths = collectCoreDepthInsurance(baseQueue, parent.id);
   const insuranceNorm = new Set(insuranceDepths.map(normalizeTextForDup));
 
-  // missingSignals（軽量推定）
+  // missingSignals（軽量推定：small normalization 済）
   const missingSignals = inferMissingSignals(type, answer);
 
-  // ルール深掘り生成（最大3）
+  // 深掘り生成（generate側が「直撃2＋ルール1」で最大3を返す設計）
   const candsAll = await generateDeepDiveQuestions({
     type,
     answer,
     tone,
-    missingSignals, // ← GenerateInput 側は optional にしたので、無しでも動くが、ここは渡す
+    missingSignals,
     maxQuestions: maxDeepDives,
   });
 

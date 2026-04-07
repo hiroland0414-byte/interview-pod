@@ -349,7 +349,7 @@ function scoreCsvRows(rows: CsvFallbackRow[], answer: string): CsvFallbackRow[] 
 }
 
 export async function generateDeepDiveQuestions(input: GenerateInput): Promise<string[]> {
-  const maxQ = input.maxQuestions ?? 3;
+  const maxQ = input.maxQuestions ?? 2;
   const answer = (input.answer || "").trim();
 
   const missingSignals: MissingSignal[] = Array.isArray(input.missingSignals)

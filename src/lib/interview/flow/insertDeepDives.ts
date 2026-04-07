@@ -199,9 +199,9 @@ export async function insertDeepDives(params: {
   type: QuestionType;
   tone: "strict" | "gentle";
   mode: ModeTag;
-  maxDeepDives?: number; // default 3（generate側は 直撃2＋ルール1 固定で最大3）
+  maxDeepDives?: number; // default 2（generate側は 直撃2＋ルール1 固定で最大3）
 }): Promise<InterviewQuestion[]> {
-  const { queue, atIndex, answer, type, tone, mode, maxDeepDives = 3 } = params;
+  const { queue, atIndex, answer, type, tone, mode, maxDeepDives = 2 } = params;
 
   const baseQueue = Array.isArray(queue) ? queue : [];
   const parent = baseQueue[atIndex];
