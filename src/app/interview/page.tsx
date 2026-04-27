@@ -621,7 +621,7 @@ export default function InterviewPage() {
                 className="text-[28px] font-extrabold text-white tracking-wide"
                 style={{ textShadow: "0 2px 10px rgba(0,0,0,0.35)" }}
               >
-                面接トレーニング TEST
+                面接トレーニングTEST
               </h1>
              </div>
             <div className="mt-4 rounded-[22px] border-2 border-white/55 p-4 bg-sky-100/85 shadow-[0_10px_30px_rgba(0,0,0,0.18)]">
