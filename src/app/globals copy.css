@@ -38,7 +38,7 @@ html,
 body {
   height: 100%;
   margin: 0;
-  overflow: auto;          /* ★bodyだけでなくhtmlも殺す */
+  overflow: hidden;          /* ★bodyだけでなくhtmlも殺す */
   overscroll-behavior: none; /* ★慣性スクロール等の暴れ対策 */
 }
 @keyframes softPulse {
