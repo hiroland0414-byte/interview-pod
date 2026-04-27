@@ -750,7 +750,10 @@ export default function InterviewPage() {
             </div>
 
 {/* 🔽 スキップボタン */}
-<div className="mt-3 flex justify-center">
+
+<div className="text-red-600 font-bold">SKIP TEST</div>
+
+<div className="mt-2 flex justify-center">
   <div className="w-full max-w-[360px] flex gap-2">
     <button
       type="button"
@@ -772,10 +775,10 @@ export default function InterviewPage() {
   </div>
 </div>
 
-{/* 🔽 既存の操作ボタン */}
-<div className="mt-5 flex justify-center pb-6">
-  <div className="w-full max-w-[360px] flex gap-3">
-  
+                {/* 🔽 既存の操作ボタン */}
+               <div className="mt-3 flex justify-center pb-4">
+               <div className="w-full max-w-[360px] flex gap-3">
+
                 {/* モード選択（左） */}
                 <button
                   type="button"
