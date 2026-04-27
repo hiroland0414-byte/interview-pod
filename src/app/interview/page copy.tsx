@@ -14,9 +14,7 @@ import { correctLightRealtime, correctStrictFinal } from "@/lib/speech/correct";
 import type { QuestionType, Tone } from "@/lib/interview/deepDive/rules";
 
 const BG_SRC = "/images/sky_cloud.jpg";
-const [skipped, setSkipped] = useState<
-  { id: string; reason: "not_needed" | "later" }[]
->([]);
+
 const MODE_LABEL: Record<ModeTag, string> = {
   A1: "病 院（診療放射線技師）",
   A2: "病 院（看護師）",
@@ -553,48 +551,6 @@ export default function InterviewPage() {
     }
   }
 
-    // ✅ ここに追加
-  async function onSkip(reason: "not_needed" | "later") {
-    if (!currentQ || isLoading) return;
-    if (isAdvancing) return;
-
-    try {
-      await stopAndFinalizeSpeechIfNeeded();
-    } catch {}
-
-    try {
-      const raw = sessionStorage.getItem("kcareer.session.skipped");
-      const arr = raw ? JSON.parse(raw) : [];
-
-      arr.push({
-        questionId: currentQ.id,
-        questionText: currentQ.text,
-        reason,
-        kind: String((currentQ as any)?.kind ?? ""),
-        section: (currentQ as any)?.section ? String((currentQ as any).section) : undefined,
-        depthLevel:
-          typeof (currentQ as any)?.depthLevel === "number"
-            ? (currentQ as any).depthLevel
-            : undefined,
-        skippedAt: new Date().toISOString(),
-      });
-
-      sessionStorage.setItem("kcareer.session.skipped", JSON.stringify(arr));
-      sessionStorage.removeItem(draftKey(mode, currentQ.id));
-    } catch {}
-
-    const nextIndex = index + 1;
-
-    if (nextIndex >= queue.length) {
-      router.push("/interview/finish");
-      return;
-    }
-
-    setIndex(nextIndex);
-    setAnswer("");
-    committedRef.current = "";
-  }
-
   const current = index + 1;
   const total = queue.length;
 
@@ -749,33 +705,9 @@ export default function InterviewPage() {
               </div>
             </div>
 
-{/* 🔽 スキップボタン */}
-<div className="mt-3 flex justify-center">
-  <div className="w-full max-w-[360px] flex gap-2">
-    <button
-      type="button"
-      onClick={() => onSkip("not_needed")}
-      disabled={isLoading || !currentQ || isAdvancing}
-      className="flex-1 h-[34px] rounded-full text-[12px] font-bold bg-white/70 text-slate-700 border border-white/60"
-    >
-      今回は不要
-    </button>
-
-    <button
-      type="button"
-      onClick={() => onSkip("later")}
-      disabled={isLoading || !currentQ || isAdvancing}
-      className="flex-1 h-[34px] rounded-full text-[12px] font-bold bg-white/70 text-slate-700 border border-white/60"
-    >
-      後でやる
-    </button>
-  </div>
-</div>
-
-{/* 🔽 既存の操作ボタン */}
-<div className="mt-5 flex justify-center pb-6">
-  <div className="w-full max-w-[360px] flex gap-3">
-  
+            {/* ✅ ここだけ変更：下部ボタンを3つ横並び（UIは他に触らない） */}
+            <div className="mt-5 flex justify-center pb-6">
+              <div className="w-full max-w-[360px] flex gap-3">
                 {/* モード選択（左） */}
                 <button
                   type="button"
