@@ -13,7 +13,7 @@ export default function Header({ facility }: { facility: string }) {
       {facility && (
         <p className="text-[18px] font-bold text-red-600 leading-tight">{facility}</p>
       )}
-      <h2 className="text-[22px] font-extrabold text-slate-900 mt-1">面接トレーニング</h2>
+      <h2 className="text-[22px] font-extrabold text-slate-900 mt-1">面接トレーニングTEST</h2>
       <div className="mt-2">
         <ModeTabs />
       </div>
